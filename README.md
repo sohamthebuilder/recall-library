@@ -40,11 +40,19 @@ migrated PGlite database and deterministic fake adapters (`test/harness.ts`).
 
 1. Create a Neon project and copy its connection string.
 2. Import the repo into Vercel and set `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`,
-   `AUTH_GOOGLE_SECRET` and `LEARNER_EMAIL` in the project's environment variables.
+   `AUTH_GOOGLE_SECRET`, `LEARNER_EMAIL`, `OPENAI_API_KEY` and `CRON_SECRET` in the project's
+   environment variables.
 3. Add `https://<your-domain>/api/auth/callback/google` as an authorised redirect URI on the
    Google OAuth client.
 4. Run `DATABASE_URL=<neon url> npm run db:migrate` once (and after each schema change).
 5. Deploy.
+
+## Background jobs
+
+Slow work (processing a Source, proposing Topics) runs as background jobs stored in the `jobs`
+table. A server action that queues work drains the queue after its response is sent
+(`after()` from `next/server`). `vercel.json` also schedules `/api/jobs/run` (protected by
+`CRON_SECRET`) once a day as a safety net; on a paid Vercel plan you can make it more frequent.
 
 ## Layout
 
@@ -53,7 +61,8 @@ src/core/          application core: operations named after the glossary (the on
 src/core/ports/    adapter interfaces: AI, content fetcher, file store, clock
 src/adapters/      adapter implementations; fakes/ holds the deterministic test fakes
 src/db/            Drizzle schema, driver-agnostic Db type, production client
-src/server/core.ts composition root: the core wired to real adapters
+src/server/core.ts composition root: the core wired to real adapters (OpenAI in src/adapters/openai.ts)
+src/server/jobs.ts runJobsAfterResponse(): drain background jobs after a server action responds
 src/app/           Next.js UI: thin pages and server actions that call the core
 src/auth.ts        Auth.js configuration
 drizzle/           SQL migrations (generated with `npm run db:generate`)
