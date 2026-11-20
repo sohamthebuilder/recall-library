@@ -1,5 +1,6 @@
 import type { Db } from "@/db/types";
 import { chunksOfSource, similarChunks } from "./chunks";
+import { getExplainer, listExplainerVersions, retryExplainer } from "./explainers";
 import { jobHandlers } from "./job-handlers";
 import { runJobs, type RunJobsOptions } from "./jobs";
 import type { AiAdapter } from "./ports/ai";
@@ -61,6 +62,11 @@ export function createCore(deps: CoreDeps) {
     tags: () => listTags(deps),
     /** Topics by name search and/or Tags (all of them). Practice by Tag uses `{ tagIds: [id] }`. */
     findTopics: (input?: FindTopicsInput) => findTopics(deps, input),
+
+    // Explainers
+    explainer: (topicId: string) => getExplainer(deps, topicId),
+    explainerVersions: (topicId: string) => listExplainerVersions(deps, topicId),
+    retryExplainer: (topicId: string) => retryExplainer(deps, topicId),
 
     /** Drain the background job queue. See jobs.ts. */
     runJobs: (options?: RunJobsOptions) => runJobs(deps, jobHandlers, options),

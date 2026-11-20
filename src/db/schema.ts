@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   index,
   integer,
   jsonb,
@@ -142,6 +143,59 @@ export const topicProposals = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },
   (t) => [index("topic_proposals_source").on(t.sourceId)],
+);
+
+export const explainerStatus = pgEnum("explainer_status", ["generating", "ready", "failed"]);
+
+/**
+ * A Topic's one Explainer (ADR 0001). Created when the Topic gets its first approved Source;
+ * its content lives in immutable explainer_versions, and `current_version_id` points at the
+ * one the learner studies. Null until the first version is generated.
+ */
+export const explainers = pgTable("explainers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  topicId: uuid("topic_id")
+    .notNull()
+    .unique()
+    .references(() => topics.id, { onDelete: "cascade" }),
+  status: explainerStatus("status").notNull().default("generating"),
+  /** Why generation failed, safe to show the learner. Set only when status is `failed`. */
+  failureReason: text("failure_reason"),
+  // No ON DELETE action: checked at statement end, so deleting the Explainer cascades cleanly.
+  currentVersionId: uuid("current_version_id").references((): AnyPgColumn => explainerVersions.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+});
+
+/** What made an Explainer version. Every change to an Explainer creates a version (ADR 0001). */
+export const explainerVersionCause = pgEnum("explainer_version_cause", [
+  "generated",
+  "instruction",
+  "text_edit",
+  "suggested_edit",
+  "restore",
+  "form_switch",
+]);
+
+/**
+ * One immutable version of an Explainer (a database trigger refuses UPDATEs). `content` is
+ * ExplainerContent (src/core/explainer-content.ts), validated before insert. `cause_detail`
+ * holds cause-specific data, e.g. the instruction text or the version restored from.
+ */
+export const explainerVersions = pgTable(
+  "explainer_versions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    explainerId: uuid("explainer_id")
+      .notNull()
+      .references((): AnyPgColumn => explainers.id, { onDelete: "cascade" }),
+    /** 1, 2, 3... per Explainer. */
+    number: integer("number").notNull(),
+    content: jsonb("content").notNull(),
+    cause: explainerVersionCause("cause").notNull(),
+    causeDetail: jsonb("cause_detail"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [uniqueIndex("explainer_versions_explainer_number").on(t.explainerId, t.number)],
 );
 
 export const jobStatus = pgEnum("job_status", ["queued", "running", "done", "failed"]);

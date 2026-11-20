@@ -322,6 +322,202 @@ button.danger {
   margin: 0 0 8px;
 }
 
+/* Topic page: the Explainer uses the width; Sources (and Recall Prompts) sit beside it. */
+.topic-header h2 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.topic-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 24px;
+  margin-top: 16px;
+  align-items: start;
+}
+
+.aside-heading {
+  font-size: 1rem;
+  margin: 0 0 12px;
+}
+
+@media (max-width: 960px) {
+  .topic-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Explainer infographic */
+.explainer {
+  padding: 20px;
+  min-width: 0;
+}
+
+.explainer-title {
+  font-size: 1.3rem;
+  margin: 0 0 12px;
+}
+
+.analogy {
+  border-left: 4px solid var(--accent);
+  background: var(--bg);
+  border-radius: 0 8px 8px 0;
+  padding: 10px 14px;
+  margin: 0 0 16px;
+}
+
+.explainer-body {
+  display: grid;
+  gap: 20px;
+}
+
+.key-points {
+  margin: 0;
+  padding-left: 1.4em;
+  display: grid;
+  gap: 10px;
+}
+
+.citation {
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 3px 6px;
+  margin-left: 2px;
+  vertical-align: super;
+  border-radius: 999px;
+  color: var(--accent);
+  border-color: var(--accent);
+  min-width: 24px;
+  min-height: 20px;
+}
+
+.citation.active {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.passage {
+  margin: 8px 0 0;
+  padding: 10px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.passage p {
+  margin: 0 0 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 14em;
+  overflow-y: auto;
+}
+
+.passage footer {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.diagram {
+  margin: 0;
+  min-width: 0;
+}
+
+.diagram-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
+.diagram-vertical {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .diagram-horizontal {
+    display: none;
+  }
+  .diagram-vertical {
+    display: block;
+  }
+  .explainer {
+    padding: 14px;
+  }
+}
+
+.diagram-node {
+  fill: var(--surface);
+  stroke: var(--node-stroke, var(--border));
+  stroke-width: 1.5;
+}
+
+.diagram-node-label {
+  fill: var(--text);
+  font-size: 13px;
+}
+
+.diagram-edge {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.5;
+}
+
+.diagram-arrowhead {
+  fill: var(--muted);
+}
+
+.diagram-edge-label {
+  fill: var(--muted);
+  font-size: 11px;
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.group-0 { --node-stroke: #2f5bd3; --node-fill: #2f5bd322; }
+.group-1 { --node-stroke: #12846b; --node-fill: #12846b22; }
+.group-2 { --node-stroke: #b5651d; --node-fill: #b5651d22; }
+.group-3 { --node-stroke: #8a3fb5; --node-fill: #8a3fb522; }
+.group-4 { --node-stroke: #b8326a; --node-fill: #b8326a22; }
+.group-5 { --node-stroke: #5f6b2a; --node-fill: #5f6b2a22; }
+
+g[class^="group-"]:not(.group-none) .diagram-node {
+  fill: var(--node-fill);
+}
+
+.diagram-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0 0 8px;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.diagram-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 2px solid var(--node-stroke);
+  background: var(--node-fill);
+}
+
+.diagram-text {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
 .stack {
   display: flex;
   flex-direction: column;

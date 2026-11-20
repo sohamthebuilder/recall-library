@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { sourceChunks, sources } from "@/db/schema";
 import { chunkSegments, joinSegments } from "./chunking";
+import { onSourceTextCaptured } from "./explainers";
 import type { CoreDeps } from "./core";
 import { AiError } from "./ports/ai";
 import { ContentFetchError } from "./ports/content-fetcher";
@@ -58,6 +59,7 @@ export async function processSource(deps: CoreDeps, { sourceId }: { sourceId: st
           })),
         );
       }
+      await onSourceTextCaptured(tx, deps.clock.now(), sourceId);
     });
 
     await setStatus(deps, sourceId, "proposing_topics");

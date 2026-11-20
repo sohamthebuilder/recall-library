@@ -1,4 +1,12 @@
-import { AiError, type AiAdapter, type ConfirmTopicMatchInput, type ProposeTopicsInput, type TopicCandidate } from "@/core/ports/ai";
+import type { ExplainerDraft } from "@/core/explainer-content";
+import {
+  AiError,
+  type AiAdapter,
+  type ConfirmTopicMatchInput,
+  type GenerateExplainerInput,
+  type ProposeTopicsInput,
+  type TopicCandidate,
+} from "@/core/ports/ai";
 import { EMBEDDING_DIMENSIONS } from "@/db/schema";
 
 export const FAKE_EMBEDDING_DIMENSIONS = EMBEDDING_DIMENSIONS;
@@ -12,12 +20,19 @@ type Scripted<T> = T | (() => T | Promise<T>);
  *   zero-padded, so `[1, 0]` and `[0.9, 0.1]` are fine)
  * - proposeTopics: no Topics (scriptTopicProposals, keyed by the Source's exact text)
  * - confirmTopicMatch: no match (scriptTopicMatch, keyed by candidate name)
+ * - generateExplainer: a small valid infographic titled after the Topic, one key point per
+ *   passage (up to 3) citing it (scriptExplainer / scriptExplainerFailure, keyed by Topic name)
  */
 export class FakeAi implements AiAdapter {
   private readonly scriptedEmbeddings = new Map<string, number[]>();
   private readonly scriptedProposals = new Map<string, Scripted<TopicCandidate[]>>();
   private readonly proposalFailures = new Map<string, string[]>();
   private readonly scriptedMatches = new Map<string, string | null>();
+  private readonly scriptedExplainers = new Map<string, ExplainerScript>();
+  private readonly explainerFailures = new Map<string, string[]>();
+
+  /** Every generateExplainer call, in order. */
+  readonly explainerRequests: GenerateExplainerInput[] = [];
 
   /** Every confirmTopicMatch call, in order: which existing Topics were offered for which candidate. */
   readonly matchRequests: ConfirmTopicMatchInput[] = [];
@@ -52,6 +67,30 @@ export class FakeAi implements AiAdapter {
     return this;
   }
 
+  /**
+   * Make `generateExplainer` for the Topic with this name return this draft (or what the
+   * function builds from the request, e.g. to cite `passages[0].chunkId`). Need not be valid.
+   */
+  scriptExplainer(topicName: string, draft: ExplainerScript): this {
+    this.scriptedExplainers.set(topicName, draft);
+    return this;
+  }
+
+  /** Make the next `generateExplainer` call for this Topic fail with this reason (then it behaves as scripted). */
+  scriptExplainerFailure(topicName: string, reason: string): this {
+    this.explainerFailures.set(topicName, [...(this.explainerFailures.get(topicName) ?? []), reason]);
+    return this;
+  }
+
+  async generateExplainer(input: GenerateExplainerInput): Promise<ExplainerDraft> {
+    this.explainerRequests.push(input);
+    const failure = this.explainerFailures.get(input.topic.name)?.shift();
+    if (failure !== undefined) throw new AiError(failure);
+    const scripted = this.scriptedExplainers.get(input.topic.name);
+    if (scripted === undefined) return defaultExplainer(input);
+    return (typeof scripted === "function" ? await scripted(input) : scripted) as ExplainerDraft;
+  }
+
   async embed(texts: string[]): Promise<number[][]> {
     return texts.map((t) => this.scriptedEmbeddings.get(t) ?? defaultEmbedding(t));
   }
@@ -70,6 +109,32 @@ export class FakeAi implements AiAdapter {
     if (!name) return null;
     return input.existing.find((t) => t.name === name)?.id ?? null;
   }
+}
+
+/** A draft, or a builder from the request. Typed loosely so tests can script invalid drafts. */
+export type ExplainerScript =
+  | ExplainerDraft
+  | Record<string, unknown>
+  | ((input: GenerateExplainerInput) => ExplainerDraft | Record<string, unknown> | Promise<ExplainerDraft | Record<string, unknown>>);
+
+function defaultExplainer({ topic, passages }: GenerateExplainerInput): ExplainerDraft {
+  const cited = passages.slice(0, 3);
+  return {
+    form: "infographic",
+    title: topic.name,
+    keyPoints: cited.map((p, i) => ({
+      id: `kp${i + 1}`,
+      text: `Point ${i + 1} about ${topic.name}.`,
+      citations: [{ chunkId: p.chunkId }],
+    })),
+    analogy: null,
+    diagram: {
+      groups: [],
+      nodes: [{ id: "n1", label: topic.name, groupId: null }],
+      edges: [],
+    },
+    steps: [],
+  };
 }
 
 function pad(vector: number[]): number[] {
