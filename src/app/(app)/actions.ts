@@ -38,6 +38,17 @@ export async function addNote(_prev: AddNoteState, formData: FormData): Promise<
   return state;
 }
 
+/** Thin adapter from the form to `addSource` for a YouTube link. */
+export async function addYouTubeVideo(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireLearner();
+  const state = await attempt(() => getCore().addSource({ kind: "youtube", url: String(formData.get("url") ?? "") }));
+  if (state.ok) {
+    runJobsAfterResponse();
+    revalidatePath("/");
+  }
+  return state;
+}
+
 export async function retrySource(sourceId: string): Promise<void> {
   await requireLearner();
   const state = await attempt(() => getCore().retrySource(sourceId));

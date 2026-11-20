@@ -1,6 +1,7 @@
 import "server-only";
 import { contentFetcherNotYetAvailable, fileStoreNotYetAvailable } from "@/adapters/not-yet-available";
 import { openAiFromEnv } from "@/adapters/openai";
+import { createYouTubeTranscriptFetcher } from "@/adapters/youtube-transcript";
 import { createCore, systemClock, type Core } from "@/core";
 import { getDb } from "@/db/client";
 
@@ -11,7 +12,10 @@ export function getCore(): Core {
   core ??= createCore({
     db: getDb(),
     ai: openAiFromEnv(),
-    contentFetcher: contentFetcherNotYetAvailable,
+    contentFetcher: {
+      ...contentFetcherNotYetAvailable,
+      ...createYouTubeTranscriptFetcher(),
+    },
     fileStore: fileStoreNotYetAvailable,
     clock: systemClock,
   });

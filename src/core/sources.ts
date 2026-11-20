@@ -3,6 +3,7 @@ import { sources } from "@/db/schema";
 import type { CoreDeps } from "./core";
 import { NotFoundError, ValidationError } from "./errors";
 import { enqueueJob } from "./jobs";
+import { parseYouTubeVideoId, youTubeWatchUrl } from "./youtube";
 
 export type SourceKind = "url" | "youtube" | "pdf" | "markdown" | "note";
 
@@ -29,19 +30,38 @@ export interface Library {
   sources: Source[];
 }
 
-export type AddSourceInput = { kind: "note"; title?: string | null; text: string };
+export type AddSourceInput =
+  | { kind: "note"; title?: string | null; text: string }
+  /** A YouTube video link; its title and transcript are captured while processing. */
+  | { kind: "youtube"; url: string };
+
+type NewSource = Pick<typeof sources.$inferInsert, "kind" | "title" | "reference" | "text">;
+
+/** Validate the input and work out the new Source's row. One case per Source kind. */
+function newSource(input: AddSourceInput): NewSource {
+  switch (input.kind) {
+    case "note": {
+      const text = input.text.trim();
+      if (!text) throw new ValidationError("A Note needs some text.");
+      return { kind: "note", title: input.title?.trim() || null, reference: null, text };
+    }
+    case "youtube": {
+      const videoId = parseYouTubeVideoId(input.url);
+      if (!videoId) throw new ValidationError("That isn't a YouTube video link.");
+      return { kind: "youtube", title: null, reference: youTubeWatchUrl(videoId), text: null };
+    }
+  }
+}
 
 /** Add a Source and start processing it in the background. It begins `pending`. */
 export async function addSource(deps: CoreDeps, input: AddSourceInput): Promise<Source> {
-  const text = input.text.trim();
-  if (!text) throw new ValidationError("A Note needs some text.");
-  const title = input.title?.trim() || null;
+  const values = newSource(input);
   const now = deps.clock.now();
 
   return deps.db.transaction(async (tx) => {
     const [row] = await tx
       .insert(sources)
-      .values({ kind: "note", title, reference: null, text, addedAt: now, status: "pending" })
+      .values({ ...values, addedAt: now, status: "pending" })
       .returning();
     await enqueueJob(tx, now, "process_source", { sourceId: row!.id });
     return toSource(row!);

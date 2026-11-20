@@ -2,6 +2,8 @@ import Link from "next/link";
 import { isSourceProcessing } from "@/core";
 import { getCore } from "@/server/core";
 import { AddNoteForm } from "./add-note-form";
+import { AddYouTubeForm } from "./add-youtube-form";
+import { sourceKindLabel, untitled } from "./source-kind";
 import { RefreshWhileProcessing, StatusBadge } from "./source-status";
 
 export const dynamic = "force-dynamic";
@@ -14,10 +16,16 @@ export default async function LibraryPage() {
   return (
     <div className="two-column">
       <RefreshWhileProcessing active={sources.some((s) => isSourceProcessing(s.status))} />
-      <section className="panel" aria-labelledby="add-note">
-        <h2 id="add-note">Add a Note</h2>
-        <AddNoteForm />
-      </section>
+      <div>
+        <section className="panel" aria-labelledby="add-youtube" style={{ marginBottom: 16 }}>
+          <h2 id="add-youtube">Add a YouTube video</h2>
+          <AddYouTubeForm />
+        </section>
+        <section className="panel" aria-labelledby="add-note">
+          <h2 id="add-note">Add a Note</h2>
+          <AddNoteForm />
+        </section>
+      </div>
 
       <section aria-labelledby="library">
         <h2 id="library" style={{ marginTop: 0 }}>
@@ -31,7 +39,7 @@ export default async function LibraryPage() {
               <li key={source.id} className="panel source-item">
                 <div className="row-between">
                   <h3>
-                    <Link href={`/sources/${source.id}`}>{source.title ?? "Untitled Note"}</Link>
+                    <Link href={`/sources/${source.id}`}>{source.title ?? untitled(source.kind)}</Link>
                   </h3>
                   <StatusBadge status={source.status} />
                 </div>
@@ -40,7 +48,7 @@ export default async function LibraryPage() {
                   <p className="error">{source.failureReason}</p>
                 ) : null}
                 <div className="source-meta">
-                  Note · added{" "}
+                  {sourceKindLabel[source.kind]} · added{" "}
                   <time dateTime={source.addedAt.toISOString()}>{dateFormat.format(source.addedAt)}</time>
                 </div>
               </li>

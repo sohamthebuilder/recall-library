@@ -15,3 +15,6 @@ export type { FileStore, StoredFile } from "./ports/file-store";
 export type { Clock } from "./ports/clock";
 export { systemClock } from "./ports/clock";
 export { isSourceProcessing } from "./source-status";
+export { citationUrl } from "./citations";
+export { isYouTubeUrl, parseYouTubeVideoId, youTubeWatchUrl } from "./youtube";
+export type { TranscriptCue, YouTubeTranscript } from "./ports/content-fetcher";

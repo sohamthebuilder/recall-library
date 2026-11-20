@@ -11,6 +11,7 @@ function notYet(what: string): never {
 
 export const contentFetcherNotYetAvailable: ContentFetcher = {
   fetchArticle: () => notYet("The content fetcher"),
+  fetchYouTubeTranscript: () => notYet("The content fetcher"),
 };
 
 export const fileStoreNotYetAvailable: FileStore = {
