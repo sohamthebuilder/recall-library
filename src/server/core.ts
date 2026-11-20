@@ -3,6 +3,7 @@ import { createArticleFetcher } from "@/adapters/article-fetcher";
 import { contentFetcherNotYetAvailable } from "@/adapters/not-yet-available";
 import { openAiFromEnv } from "@/adapters/openai";
 import { vercelBlobFromEnv } from "@/adapters/vercel-blob";
+import { createYouTubeTranscriptFetcher } from "@/adapters/youtube-transcript";
 import { createCore, systemClock, type Core } from "@/core";
 import { getDb } from "@/db/client";
 
@@ -16,6 +17,7 @@ export function getCore(): Core {
     contentFetcher: {
       ...contentFetcherNotYetAvailable,
       ...createArticleFetcher(),
+      ...createYouTubeTranscriptFetcher(),
     },
     fileStore: vercelBlobFromEnv(),
     clock: systemClock,

@@ -3,6 +3,7 @@ import { isSourceProcessing } from "@/core";
 import { getCore } from "@/server/core";
 import { AddNoteForm } from "./add-note-form";
 import { AddUrlForm } from "./add-url-form";
+import { AddYouTubeForm } from "./add-youtube-form";
 import { SourceMeta, sourceDisplayTitle } from "./source-meta";
 import { UploadMarkdownForm } from "./upload-markdown-form";
 import { RefreshWhileProcessing, StatusBadge } from "./source-status";
@@ -16,6 +17,10 @@ export default async function LibraryPage() {
     <div className="two-column">
       <RefreshWhileProcessing active={sources.some((s) => isSourceProcessing(s.status))} />
       <div className="stack">
+        <section className="panel" aria-labelledby="add-youtube">
+          <h2 id="add-youtube">Add a YouTube video</h2>
+          <AddYouTubeForm />
+        </section>
         <section className="panel" aria-labelledby="add-url">
           <h2 id="add-url">Add a blog post</h2>
           <AddUrlForm />

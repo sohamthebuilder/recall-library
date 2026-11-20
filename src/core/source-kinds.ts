@@ -1,8 +1,9 @@
 import type { CoreDeps } from "./core";
-import type { FetchedArticle } from "./ports/content-fetcher";
 import { ValidationError } from "./errors";
 import { readUploadedFile, type UploadRule } from "./uploads";
+import { ContentFetchError, type TranscriptCue, type YouTubeTranscript, type FetchedArticle } from "./ports/content-fetcher";
 import type { SourceKind, SourceRow } from "./sources";
+import { parseYouTubeVideoId } from "./youtube";
 
 /**
  * A run of captured text with where it came from. Chunks cut from a segment inherit its
@@ -91,8 +92,47 @@ function decodeUtf8(bytes: Uint8Array): string {
   return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
 }
 
+export const NO_TRANSCRIPT_REASON =
+  "This video has no transcript available, so it can't be read. Add a Note with what you took from it instead.";
+
+/** Transcript cues are grouped into segments of about this many characters (one timestamp each). */
+const MAX_TRANSCRIPT_SEGMENT_CHARS = 1200;
+
+/** A YouTube video is captured from its transcript; each segment keeps the second it starts at. */
+const youtube = defineSourceKind<YouTubeTranscript>({
+  fetch: async (deps, source) => {
+    const videoId = source.reference ? parseYouTubeVideoId(source.reference) : null;
+    if (!videoId) throw new ContentFetchError("This Source's YouTube link is not valid.");
+    const transcript = await deps.contentFetcher.fetchYouTubeTranscript(videoId);
+    if (!transcript || !transcript.cues.some((c) => c.text.trim())) throw new ContentFetchError(NO_TRANSCRIPT_REASON);
+    return transcript;
+  },
+  extract: async (_deps, _source, transcript) => ({
+    title: transcript.title,
+    segments: transcriptSegments(transcript.cues),
+  }),
+});
+
+/** Join cues into segments of up to MAX_TRANSCRIPT_SEGMENT_CHARS, each anchored at its first cue. */
+function transcriptSegments(cues: TranscriptCue[]): Segment[] {
+  const segments: Segment[] = [];
+  let current: Segment | null = null;
+  for (const cue of cues) {
+    const text = cue.text.replace(/\s+/g, " ").trim();
+    if (!text) continue;
+    if (current && current.text.length + 1 + text.length <= MAX_TRANSCRIPT_SEGMENT_CHARS) {
+      current.text += ` ${text}`;
+    } else {
+      current = { text, seconds: Math.max(0, Math.floor(cue.seconds)) };
+      segments.push(current);
+    }
+  }
+  return segments;
+}
+
 export const sourceKindHandlers: Partial<Record<SourceKind, SourceKindHandler>> = {
   note,
   url,
   markdown,
+  youtube,
 };
