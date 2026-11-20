@@ -38,6 +38,17 @@ export async function addNote(_prev: AddNoteState, formData: FormData): Promise<
   return state;
 }
 
+/** Quick add (home screen box and the Share menu): the core routes the link to the YouTube or blog URL flow. */
+export async function addLink(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireLearner();
+  const state = await attempt(() => getCore().addLink({ text: String(formData.get("link") ?? "") }));
+  if (state.ok) {
+    runJobsAfterResponse();
+    revalidatePath("/");
+  }
+  return state;
+}
+
 /** Thin adapter from the link form to `addSource`. */
 export async function addUrl(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireLearner();

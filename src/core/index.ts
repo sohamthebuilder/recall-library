@@ -39,4 +39,6 @@ export { sourceDisplayName, sourceKindLabel } from "./source-display";
 export type { UploadedFile } from "./uploads";
 export { citationUrl } from "./citations";
 export { isYouTubeUrl, parseYouTubeVideoId, youTubeWatchUrl } from "./youtube";
+export { findLink } from "./links";
+export type { AddLinkInput } from "./quick-add";
 export type { TranscriptCue, YouTubeTranscript } from "./ports/content-fetcher";
