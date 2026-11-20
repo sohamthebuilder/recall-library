@@ -1,189 +1,9 @@
 {
-  "id": "c59a98cc-3eb0-4ccf-81f1-f61bebc1e080",
+  "id": "9bb36eb8-2337-4074-8b51-037ab0e2bd83",
   "prevId": "65a26906-867f-43d4-bbc8-7dbe25eb59af",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.explainer_versions": {
-      "name": "explainer_versions",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "explainer_id": {
-          "name": "explainer_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "number": {
-          "name": "number",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "content": {
-          "name": "content",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cause": {
-          "name": "cause",
-          "type": "explainer_version_cause",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cause_detail": {
-          "name": "cause_detail",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "explainer_versions_explainer_number": {
-          "name": "explainer_versions_explainer_number",
-          "columns": [
-            {
-              "expression": "explainer_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "number",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "explainer_versions_explainer_id_explainers_id_fk": {
-          "name": "explainer_versions_explainer_id_explainers_id_fk",
-          "tableFrom": "explainer_versions",
-          "tableTo": "explainers",
-          "columnsFrom": [
-            "explainer_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.explainers": {
-      "name": "explainers",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "topic_id": {
-          "name": "topic_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "explainer_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'generating'"
-        },
-        "failure_reason": {
-          "name": "failure_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "current_version_id": {
-          "name": "current_version_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "explainers_topic_id_topics_id_fk": {
-          "name": "explainers_topic_id_topics_id_fk",
-          "tableFrom": "explainers",
-          "tableTo": "topics",
-          "columnsFrom": [
-            "topic_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "explainers_current_version_id_explainer_versions_id_fk": {
-          "name": "explainers_current_version_id_explainer_versions_id_fk",
-          "tableFrom": "explainers",
-          "tableTo": "explainer_versions",
-          "columnsFrom": [
-            "current_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "explainers_topic_id_unique": {
-          "name": "explainers_topic_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "topic_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.jobs": {
       "name": "jobs",
       "schema": "",
@@ -404,6 +224,12 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
+        },
+        "captured_at": {
+          "name": "captured_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "status": {
           "name": "status",
@@ -698,27 +524,6 @@
     }
   },
   "enums": {
-    "public.explainer_status": {
-      "name": "explainer_status",
-      "schema": "public",
-      "values": [
-        "generating",
-        "ready",
-        "failed"
-      ]
-    },
-    "public.explainer_version_cause": {
-      "name": "explainer_version_cause",
-      "schema": "public",
-      "values": [
-        "generated",
-        "instruction",
-        "text_edit",
-        "suggested_edit",
-        "restore",
-        "form_switch"
-      ]
-    },
     "public.job_status": {
       "name": "job_status",
       "schema": "public",

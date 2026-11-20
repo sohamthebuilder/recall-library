@@ -19,6 +19,8 @@ export interface Source {
   /** The text captured from the Source. Null until it has been captured. */
   text: string | null;
   addedAt: Date;
+  /** When the text was captured. Null until it has been captured. */
+  capturedAt: Date | null;
   status: SourceStatus;
   /** Why processing failed, when status is `failed`. Safe to show the learner. */
   failureReason: string | null;
@@ -29,19 +31,56 @@ export interface Library {
   sources: Source[];
 }
 
-export type AddSourceInput = { kind: "note"; title?: string | null; text: string };
+export type AddSourceInput =
+  | { kind: "note"; title?: string | null; text: string }
+  /** A blog or article link. Its text is captured while processing. */
+  | { kind: "url"; title?: string | null; url: string };
+
+/** The validated columns a new Source starts with. */
+type NewSource = { kind: SourceKind; reference: string | null; text: string | null };
+
+function newSource(input: AddSourceInput): NewSource {
+  switch (input.kind) {
+    case "note": {
+      const text = input.text.trim();
+      if (!text) throw new ValidationError("A Note needs some text.");
+      return { kind: "note", reference: null, text };
+    }
+    case "url":
+      return { kind: "url", reference: normalizeWebUrl(input.url), text: null };
+  }
+}
+
+/**
+ * The http(s) link the learner meant, or a ValidationError. A link typed without a scheme
+ * ("blog.example.com/post") is taken as https.
+ */
+export function normalizeWebUrl(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) throw new ValidationError("Enter the link to the article.");
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  let url: URL;
+  try {
+    url = new URL(withScheme);
+  } catch {
+    throw new ValidationError("That doesn't look like a web link.");
+  }
+  if ((url.protocol !== "http:" && url.protocol !== "https:") || !url.hostname.includes(".")) {
+    throw new ValidationError("That doesn't look like a web link.");
+  }
+  return url.toString();
+}
 
 /** Add a Source and start processing it in the background. It begins `pending`. */
 export async function addSource(deps: CoreDeps, input: AddSourceInput): Promise<Source> {
-  const text = input.text.trim();
-  if (!text) throw new ValidationError("A Note needs some text.");
+  const values = newSource(input);
   const title = input.title?.trim() || null;
   const now = deps.clock.now();
 
   return deps.db.transaction(async (tx) => {
     const [row] = await tx
       .insert(sources)
-      .values({ kind: "note", title, reference: null, text, addedAt: now, status: "pending" })
+      .values({ ...values, title, addedAt: now, status: "pending" })
       .returning();
     await enqueueJob(tx, now, "process_source", { sourceId: row!.id });
     return toSource(row!);
@@ -87,6 +126,7 @@ export function toSource(row: SourceRow): Source {
     reference: row.reference,
     text: row.text,
     addedAt: row.addedAt,
+    capturedAt: row.capturedAt,
     status: row.status,
     failureReason: row.failureReason,
   };

@@ -511,3 +511,15 @@ g[class^="group-"]:not(.group-none) .diagram-node {
   color: var(--muted);
   margin-top: 6px;
 }
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-self: start;
+}
+
+.source-link {
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}

@@ -38,6 +38,23 @@ export async function addNote(_prev: AddNoteState, formData: FormData): Promise<
   return state;
 }
 
+/** Thin adapter from the link form to `addSource`. */
+export async function addUrl(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireLearner();
+  const state = await attempt(() =>
+    getCore().addSource({
+      kind: "url",
+      title: String(formData.get("title") ?? ""),
+      url: String(formData.get("url") ?? ""),
+    }),
+  );
+  if (state.ok) {
+    runJobsAfterResponse();
+    revalidatePath("/");
+  }
+  return state;
+}
+
 export async function retrySource(sourceId: string): Promise<void> {
   await requireLearner();
   const state = await attempt(() => getCore().retrySource(sourceId));
@@ -93,4 +110,33 @@ export async function deleteTopic(topicId: string): Promise<void> {
   }
   revalidatePath("/topics");
   redirect("/topics");
+}
+
+export type ImportTopicsState = FormState & { message: string | null };
+
+/** Thin adapter from the paste-a-list form to `importTopics`. */
+export async function importTopics(_prev: ImportTopicsState, formData: FormData): Promise<ImportTopicsState> {
+  await requireLearner();
+  let message: string | null = null;
+  const state = await attempt(async () => {
+    const { created, skipped } = await getCore().importTopics(String(formData.get("list") ?? ""));
+    message = `Added ${created.length} Topic${created.length === 1 ? "" : "s"}.`;
+    if (skipped.length) message += ` Skipped ${skipped.length} already in your Library: ${skipped.join(", ")}.`;
+  });
+  revalidatePath("/topics");
+  return { ...state, message };
+}
+
+/** Link an existing Source to a Topic by hand (an approved link). */
+export async function linkSourceToTopic(topicId: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  await requireLearner();
+  const sourceId = String(formData.get("sourceId") ?? "");
+  const state = await attempt(async () => {
+    if (!sourceId) throw new ValidationError("Choose a Source to link.");
+    await getCore().linkSourceToTopic({ topicId, sourceId });
+  });
+  if (state.ok) runJobsAfterResponse();
+  revalidatePath(`/topics/${topicId}`);
+  revalidatePath("/topics");
+  return state;
 }

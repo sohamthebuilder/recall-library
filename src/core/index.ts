@@ -23,6 +23,7 @@ export type {
   ExplainerKeyPoint,
   ExplainerStep,
 } from "./explainer-content";
+export type { ImportTopicsResult } from "./topic-import";
 export type { RunJobsOptions, RunJobsResult } from "./jobs";
 export type { AiAdapter, ExplainerPassage, GenerateExplainerInput, TopicCandidate } from "./ports/ai";
 export { AiError } from "./ports/ai";

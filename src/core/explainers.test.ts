@@ -123,6 +123,27 @@ describe("which Topics get an Explainer", () => {
     expect((await t.core.explainerVersions(topic.id)).map((v) => v.number)).toEqual([1]);
   });
 
+  it("an imported Topic with no Source gets no Explainer", async () => {
+    const t = await createTestCore();
+    const { created } = await t.core.importTopics("Offsets");
+    await t.core.runJobs();
+
+    expect(await t.core.explainer(created[0]!.id)).toBeNull();
+    expect(t.ai.explainerRequests).toEqual([]);
+  });
+
+  it("a Source linked by hand before it is processed still gets the Topic its Explainer", async () => {
+    const t = await createTestCore({ now: new Date("2026-03-01T10:00:00Z") });
+    const { created } = await t.core.importTopics("Offsets");
+    const note = await t.core.addSource({ kind: "note", title: "Offsets", text: "Offsets are committed per partition." });
+    t.clock.set(new Date("2026-03-01T09:00:00Z")); // the generation job is queued ahead of processing
+    await t.core.linkSourceToTopic({ topicId: created[0]!.id, sourceId: note.id });
+
+    await t.core.runJobs();
+
+    expect(await t.core.explainer(created[0]!.id)).toMatchObject({ status: "ready", current: { number: 1 } });
+  });
+
   it("deleting the Topic deletes its Explainer", async () => {
     const t = await createTestCore();
     const { proposal } = await addNoteAbout(t, "Offsets are committed per partition.", "Offsets");

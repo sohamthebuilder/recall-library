@@ -40,6 +40,8 @@ export const sources = pgTable("sources", {
   /** Full text captured when the Source was processed. Null until captured (a Note has it at once). */
   text: text("text"),
   addedAt: timestamp("added_at", { withTimezone: true }).notNull(),
+  /** When `text` was captured (fetched and extracted). Null until then. */
+  capturedAt: timestamp("captured_at", { withTimezone: true }),
   status: sourceStatus("status").notNull().default("pending"),
   /** Why processing failed, safe to show the learner. Set only when status is `failed`. */
   failureReason: text("failure_reason"),

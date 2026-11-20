@@ -5,6 +5,7 @@ import { getCore } from "@/server/core";
 import { deleteTopic } from "../../actions";
 import { DeleteTopicButton } from "./delete-topic-button";
 import { ExplainerPanel } from "./explainer-panel";
+import { LinkSourceForm } from "./link-source-form";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,10 @@ export default async function TopicPage({ params }: { params: Promise<{ id: stri
     if (e instanceof NotFoundError) notFound();
     throw e;
   }
+  const linked = new Set(topic.sources.map((s) => s.id));
+  const linkable = (await core.library()).sources
+    .filter((s) => !linked.has(s.id))
+    .map((s) => ({ id: s.id, title: s.title ?? "Untitled Source" }));
 
   return (
     <>
@@ -61,6 +66,7 @@ export default async function TopicPage({ params }: { params: Promise<{ id: stri
                 ))}
               </ul>
             )}
+            <LinkSourceForm topicId={topic.id} sources={linkable} />
           </section>
         </aside>
       </div>

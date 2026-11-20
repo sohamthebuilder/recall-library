@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { sourceChunks, sources } from "@/db/schema";
 import { chunkSegments, joinSegments } from "./chunking";
+import { onSourceTextCaptured } from "./explainers";
 import type { CoreDeps } from "./core";
 import { AiError } from "./ports/ai";
 import { ContentFetchError } from "./ports/content-fetcher";
@@ -45,7 +46,7 @@ export async function processSource(deps: CoreDeps, { sourceId }: { sourceId: st
       embeddings.push(...(await deps.ai.embed(chunks.slice(i, i + EMBED_BATCH).map((c) => c.text))));
     }
     await deps.db.transaction(async (tx) => {
-      await tx.update(sources).set({ text, title }).where(eq(sources.id, sourceId));
+      await tx.update(sources).set({ text, title, capturedAt: deps.clock.now() }).where(eq(sources.id, sourceId));
       await tx.delete(sourceChunks).where(eq(sourceChunks.sourceId, sourceId));
       if (chunks.length) {
         await tx.insert(sourceChunks).values(
@@ -58,6 +59,7 @@ export async function processSource(deps: CoreDeps, { sourceId }: { sourceId: st
           })),
         );
       }
+      await onSourceTextCaptured(tx, deps.clock.now(), sourceId);
     });
 
     await setStatus(deps, sourceId, "proposing_topics");

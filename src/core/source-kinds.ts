@@ -1,4 +1,5 @@
 import type { CoreDeps } from "./core";
+import type { FetchedArticle } from "./ports/content-fetcher";
 import type { SourceKind, SourceRow } from "./sources";
 
 /**
@@ -52,6 +53,16 @@ const note = defineSourceKind<string>({
   extract: async (_deps, _source, text) => ({ segments: [{ text }] }),
 });
 
+/**
+ * A blog or article link: the content fetcher downloads the page and extracts its readable
+ * text, which is kept so citations survive the page changing or disappearing.
+ */
+const url = defineSourceKind<FetchedArticle>({
+  fetch: async (deps, source) => deps.contentFetcher.fetchArticle(source.reference ?? ""),
+  extract: async (_deps, _source, article) => ({ title: article.title, segments: [{ text: article.text }] }),
+});
+
 export const sourceKindHandlers: Partial<Record<SourceKind, SourceKindHandler>> = {
   note,
+  url,
 };

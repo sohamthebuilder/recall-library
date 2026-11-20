@@ -1,4 +1,4 @@
-import { asc, cosineDistance, desc, eq, inArray, max } from "drizzle-orm";
+import { and, asc, cosineDistance, desc, eq, inArray, isNull, max } from "drizzle-orm";
 import { explainers, explainerVersions, sourceChunks, sources, topicSources, topics } from "@/db/schema";
 import type { DbOrTx } from "@/db/types";
 import type { ChunkAnchor } from "./chunking";
@@ -26,6 +26,7 @@ const PASSAGES_PER_SOURCE = 6;
 const MAX_PASSAGES = 18;
 
 export const UNUSABLE_EXPLAINER_REASON = "The AI produced an Explainer that could not be used. Try again.";
+export const NO_SOURCE_TEXT_REASON = "None of this Topic's Sources has any text yet. Retry a Source, or link another.";
 export const UNEXPECTED_EXPLAINER_FAILURE = "Something went wrong while making this Explainer. Try again.";
 
 export type ExplainerStatus = "generating" | "ready" | "failed";
@@ -100,6 +101,19 @@ export async function onSourceLinked(
   }
 }
 
+/**
+ * A Source's text and chunks were just (re)captured. Any Topic it is linked to whose first
+ * Explainer is still waiting (or failed) for want of text is queued for generation again.
+ */
+export async function onSourceTextCaptured(tx: DbOrTx, now: Date, sourceId: string): Promise<void> {
+  const waiting = await tx
+    .select({ id: explainers.id, topicId: explainers.topicId })
+    .from(explainers)
+    .innerJoin(topicSources, eq(topicSources.topicId, explainers.topicId))
+    .where(and(eq(topicSources.sourceId, sourceId), isNull(explainers.currentVersionId)));
+  for (const e of waiting) await startGenerating(tx, now, e.id, e.topicId);
+}
+
 async function startGenerating(tx: DbOrTx, now: Date, explainerId: string, topicId: string) {
   await tx.update(explainers).set({ status: "generating", failureReason: null }).where(eq(explainers.id, explainerId));
   await enqueueJob(tx, now, "generate_explainer", { topicId });
@@ -121,8 +135,18 @@ export async function generateExplainer(deps: CoreDeps, { topicId }: { topicId: 
     if (!topic) return;
     const passages = await passagesFor(deps, topic.id, topic.embedding);
     if (passages.length === 0) {
-      // No Source to build from (ADR 0001: a Topic with no Source gets no Explainer).
-      await deps.db.delete(explainers).where(eq(explainers.id, explainer.id));
+      const linked = await deps.db
+        .select({ status: sources.status })
+        .from(topicSources)
+        .innerJoin(sources, eq(sources.id, topicSources.sourceId))
+        .where(eq(topicSources.topicId, topicId));
+      if (linked.length === 0) {
+        // ADR 0001: a Topic with no Source gets no Explainer.
+        await deps.db.delete(explainers).where(eq(explainers.id, explainer.id));
+      } else if (linked.every((s) => s.status === "failed")) {
+        await markFailed(deps, explainer.id, NO_SOURCE_TEXT_REASON);
+      }
+      // Otherwise a linked Source is still being processed; onSourceTextCaptured queues this job again.
       return;
     }
 
