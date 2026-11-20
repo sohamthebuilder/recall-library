@@ -8,6 +8,7 @@ import type { ContentFetcher } from "./ports/content-fetcher";
 import type { FileStore } from "./ports/file-store";
 import { addSource, getSource, library, retrySource } from "./sources";
 import { type FindTopicsInput, findTopics, listTags, tagTopic, untagTopic } from "./tags";
+import { importTopics, linkSourceByHand } from "./topic-import";
 import {
   approveTopic,
   deleteTopic,
@@ -51,6 +52,8 @@ export function createCore(deps: CoreDeps) {
     topics: () => listTopics(deps),
     topic: (topicId: string) => getTopic(deps, topicId),
     deleteTopic: (topicId: string) => deleteTopic(deps, topicId),
+    importTopics: (list: string) => importTopics(deps, list),
+    linkSourceToTopic: (input: Arg<typeof linkSourceByHand>) => linkSourceByHand(deps, input),
 
     // Tags
     tagTopic: (input: Arg<typeof tagTopic>) => tagTopic(deps, input),

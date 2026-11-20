@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCore } from "@/server/core";
+import { ImportTopicsForm } from "./import-topics-form";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,10 @@ export default async function TopicsPage({ searchParams }: { searchParams: Searc
       <h2 id="topics" style={{ marginTop: 0 }}>
         Topics
       </h2>
+      <details className="panel" open={!filtering && topics.length === 0} style={{ marginBottom: 16 }}>
+        <summary>Add Topics from a list</summary>
+        <ImportTopicsForm />
+      </details>
 
       <form method="get" action="/topics" className="panel topic-filter" role="search">
         <label htmlFor="topic-search">Search by name</label>
@@ -48,7 +53,7 @@ export default async function TopicsPage({ searchParams }: { searchParams: Searc
         <p className="muted">
           {filtering
             ? "No Topics match."
-            : "No Topics yet. Add a Source and approve the Topics it proposes."}
+            : "No Topics yet. Paste a list above, or add a Source and approve the Topics it proposes."}
         </p>
       ) : (
         <ul className="topic-grid">
