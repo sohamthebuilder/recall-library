@@ -605,3 +605,20 @@ g[class^="group-"]:not(.group-none) .diagram-node {
   width: auto;
   margin: 0;
 }
+
+/* Quick add (#13): the add-a-link box on the home screen and the Share target page. */
+.quick-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.quick-add-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.share-panel {
+  max-width: 560px;
+  margin: 0 auto;
+}
