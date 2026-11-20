@@ -36,6 +36,8 @@ export const sources = pgTable("sources", {
   title: text("title"),
   /** Original reference: the URL or file name. Null for a Note. */
   reference: text("reference"),
+  /** Key of the uploaded file in the file store (uploaded .md/.pdf). Null for other kinds. */
+  fileKey: text("file_key"),
   /** Full text captured when the Source was processed. Null until captured (a Note has it at once). */
   text: text("text"),
   addedAt: timestamp("added_at", { withTimezone: true }).notNull(),

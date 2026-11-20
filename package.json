@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@mozilla/readability": "0.6.0",
+    "@vercel/blob": "2.8.2",
     "drizzle-orm": "0.45.4",
     "linkedom": "0.18.15",
     "next": "16.4.6",

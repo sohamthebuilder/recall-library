@@ -4,6 +4,7 @@ import { getCore } from "@/server/core";
 import { AddNoteForm } from "./add-note-form";
 import { AddUrlForm } from "./add-url-form";
 import { SourceMeta, sourceDisplayTitle } from "./source-meta";
+import { UploadMarkdownForm } from "./upload-markdown-form";
 import { RefreshWhileProcessing, StatusBadge } from "./source-status";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +23,10 @@ export default async function LibraryPage() {
         <section className="panel" aria-labelledby="add-note">
           <h2 id="add-note">Add a Note</h2>
           <AddNoteForm />
+        </section>
+        <section className="panel" aria-labelledby="upload-markdown">
+          <h2 id="upload-markdown">Upload a .md file</h2>
+          <UploadMarkdownForm />
         </section>
       </div>
 

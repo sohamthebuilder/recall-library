@@ -3,6 +3,8 @@ import { sources } from "@/db/schema";
 import type { CoreDeps } from "./core";
 import { NotFoundError, ValidationError } from "./errors";
 import { enqueueJob } from "./jobs";
+import { markdownUpload } from "./source-kinds";
+import { addUploadedSource, type UploadedFile } from "./uploads";
 
 export type SourceKind = "url" | "youtube" | "pdf" | "markdown" | "note";
 
@@ -34,12 +36,13 @@ export interface Library {
 export type AddSourceInput =
   | { kind: "note"; title?: string | null; text: string }
   /** A blog or article link. Its text is captured while processing. */
-  | { kind: "url"; title?: string | null; url: string };
+  | { kind: "url"; title?: string | null; url: string }
+  | { kind: "markdown"; file: UploadedFile };
 
 /** The validated columns a new Source starts with. */
 type NewSource = { kind: SourceKind; reference: string | null; text: string | null };
 
-function newSource(input: AddSourceInput): NewSource {
+function newSource(input: Exclude<AddSourceInput, { kind: "markdown" }>): NewSource {
   switch (input.kind) {
     case "note": {
       const text = input.text.trim();
@@ -73,6 +76,7 @@ export function normalizeWebUrl(input: string): string {
 
 /** Add a Source and start processing it in the background. It begins `pending`. */
 export async function addSource(deps: CoreDeps, input: AddSourceInput): Promise<Source> {
+  if (input.kind === "markdown") return addUploadedSource(deps, input.file, markdownUpload);
   const values = newSource(input);
   const title = input.title?.trim() || null;
   const now = deps.clock.now();

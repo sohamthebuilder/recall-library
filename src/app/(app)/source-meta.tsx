@@ -1,19 +1,10 @@
 import type { Source } from "@/core";
+import { sourceDisplayName, sourceKindLabel } from "@/core/source-display";
 
 const dateFormat = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" });
 
-const kindLabels: Record<Source["kind"], string> = {
-  url: "Article",
-  youtube: "YouTube video",
-  pdf: "PDF",
-  markdown: ".md file",
-  note: "Note",
-};
-
-/** The name shown for a Source: its title, else its link, else a placeholder. */
-export function sourceDisplayTitle(source: Source): string {
-  return source.title ?? source.reference ?? `Untitled ${kindLabels[source.kind]}`;
-}
+/** The name shown for a Source: its title, else its reference, else a placeholder. */
+export const sourceDisplayTitle = (source: Source): string => sourceDisplayName(source);
 
 /** Kind, original link (for web Sources), and when the Source was added and captured. */
 export function SourceMeta({ source }: { source: Source }) {
@@ -22,7 +13,7 @@ export function SourceMeta({ source }: { source: Source }) {
     source.capturedAt && dateFormat.format(source.capturedAt) !== dateFormat.format(source.addedAt);
   return (
     <div className="source-meta">
-      {kindLabels[source.kind]} · added <time dateTime={source.addedAt.toISOString()}>{dateFormat.format(source.addedAt)}</time>
+      {sourceKindLabel(source.kind)} · added <time dateTime={source.addedAt.toISOString()}>{dateFormat.format(source.addedAt)}</time>
       {source.capturedAt && (source.kind !== "note" || capturedOtherDay) ? (
         <>
           {" "}

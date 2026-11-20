@@ -41,7 +41,8 @@ migrated PGlite database and deterministic fake adapters (`test/harness.ts`).
 1. Create a Neon project and copy its connection string.
 2. Import the repo into Vercel and set `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`,
    `AUTH_GOOGLE_SECRET`, `LEARNER_EMAIL`, `OPENAI_API_KEY` and `CRON_SECRET` in the project's
-   environment variables.
+   environment variables. In the project's Storage tab, create a Blob store and connect it;
+   that sets `BLOB_READ_WRITE_TOKEN` (the file store for uploaded files).
 3. Add `https://<your-domain>/api/auth/callback/google` as an authorised redirect URI on the
    Google OAuth client.
 4. Run `DATABASE_URL=<neon url> npm run db:migrate` once (and after each schema change).

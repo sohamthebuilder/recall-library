@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { NotFoundError } from "@/core";
+import { NotFoundError, sourceDisplayName, sourceKindLabel } from "@/core";
 import { getCore } from "@/server/core";
 import { deleteTopic } from "../../actions";
 import { DeleteTopicButton } from "./delete-topic-button";
@@ -22,7 +22,7 @@ export default async function TopicPage({ params }: { params: Promise<{ id: stri
   const linked = new Set(topic.sources.map((s) => s.id));
   const linkable = (await getCore().library()).sources
     .filter((s) => !linked.has(s.id))
-    .map((s) => ({ id: s.id, title: s.title ?? "Untitled Source" }));
+    .map((s) => ({ id: s.id, title: sourceDisplayName(s) }));
 
   return (
     <div className="two-column wide-right">
@@ -48,10 +48,10 @@ export default async function TopicPage({ params }: { params: Promise<{ id: stri
             {topic.sources.map((source) => (
               <li key={source.id} className="panel source-item">
                 <h3>
-                  <Link href={`/sources/${source.id}`}>{source.title ?? "Untitled Note"}</Link>
+                  <Link href={`/sources/${source.id}`}>{sourceDisplayName(source)}</Link>
                 </h3>
                 <div className="source-meta">
-                  Note · added{" "}
+                  {sourceKindLabel(source.kind)} · added{" "}
                   <time dateTime={source.addedAt.toISOString()}>{dateFormat.format(source.addedAt)}</time>
                 </div>
               </li>
