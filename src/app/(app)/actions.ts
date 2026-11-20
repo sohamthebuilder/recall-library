@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireLearner } from "@/auth";
-import { NotFoundError, ValidationError } from "@/core";
+import { NotFoundError, type UploadedFile, ValidationError } from "@/core";
 import { getCore } from "@/server/core";
 import { runJobsAfterResponse } from "@/server/jobs";
 
@@ -31,6 +31,25 @@ export async function addNote(_prev: AddNoteState, formData: FormData): Promise<
       text: String(formData.get("text") ?? ""),
     }),
   );
+  if (state.ok) {
+    runJobsAfterResponse();
+    revalidatePath("/");
+  }
+  return state;
+}
+
+/** The uploaded file from a form's `file` field, as the core takes it (empty if none was chosen). */
+async function uploadedFile(formData: FormData): Promise<UploadedFile> {
+  const file = formData.get("file");
+  if (!(file instanceof File)) return { name: "", bytes: new Uint8Array() };
+  return { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) };
+}
+
+/** Upload a .md file as a Source. Size and type rules live in the core. */
+export async function uploadMarkdown(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireLearner();
+  const file = await uploadedFile(formData);
+  const state = await attempt(() => getCore().addSource({ kind: "markdown", file }));
   if (state.ok) {
     runJobsAfterResponse();
     revalidatePath("/");

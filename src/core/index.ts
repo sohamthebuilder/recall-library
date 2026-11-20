@@ -15,3 +15,5 @@ export type { FileStore, StoredFile } from "./ports/file-store";
 export type { Clock } from "./ports/clock";
 export { systemClock } from "./ports/clock";
 export { isSourceProcessing } from "./source-status";
+export { sourceDisplayName, sourceKindLabel } from "./source-display";
+export type { UploadedFile } from "./uploads";

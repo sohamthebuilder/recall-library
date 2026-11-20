@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { isSourceProcessing, NotFoundError } from "@/core";
+import { isSourceProcessing, NotFoundError, sourceDisplayName, sourceKindLabel } from "@/core";
 import { getCore } from "@/server/core";
 import { retrySource } from "../../actions";
 import { RefreshWhileProcessing, StatusBadge } from "../../source-status";
@@ -32,11 +32,12 @@ export default async function SourcePage({ params }: { params: Promise<{ id: str
           <Link href="/">← Library</Link>
         </p>
         <div className="row-between">
-          <h2 id="source-title">{source.title ?? "Untitled Note"}</h2>
+          <h2 id="source-title">{sourceDisplayName(source)}</h2>
           <StatusBadge status={source.status} />
         </div>
         <div className="source-meta" style={{ marginBottom: 12 }}>
-          Note · added <time dateTime={source.addedAt.toISOString()}>{dateFormat.format(source.addedAt)}</time>
+          {sourceKindLabel(source.kind)}
+          {source.title && source.reference ? ` · ${source.reference}` : null} · added <time dateTime={source.addedAt.toISOString()}>{dateFormat.format(source.addedAt)}</time>
         </div>
         {source.status === "failed" ? (
           <form action={retrySource.bind(null, source.id)}>

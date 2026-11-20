@@ -18,4 +18,9 @@ export class FakeFileStore implements FileStore {
   async delete(key: string): Promise<void> {
     this.files.delete(key);
   }
+
+  /** Every file currently kept, in the order they were stored. */
+  storedFiles(): StoredFile[] {
+    return [...this.files.values()];
+  }
 }

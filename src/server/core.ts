@@ -1,6 +1,7 @@
 import "server-only";
-import { contentFetcherNotYetAvailable, fileStoreNotYetAvailable } from "@/adapters/not-yet-available";
+import { contentFetcherNotYetAvailable } from "@/adapters/not-yet-available";
 import { openAiFromEnv } from "@/adapters/openai";
+import { vercelBlobFromEnv } from "@/adapters/vercel-blob";
 import { createCore, systemClock, type Core } from "@/core";
 import { getDb } from "@/db/client";
 
@@ -12,7 +13,7 @@ export function getCore(): Core {
     db: getDb(),
     ai: openAiFromEnv(),
     contentFetcher: contentFetcherNotYetAvailable,
-    fileStore: fileStoreNotYetAvailable,
+    fileStore: vercelBlobFromEnv(),
     clock: systemClock,
   });
   return core;

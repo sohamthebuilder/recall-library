@@ -67,6 +67,12 @@ body {
   align-items: start;
 }
 
+.stack {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+
 @media (max-width: 760px) {
   .two-column {
     grid-template-columns: 1fr;

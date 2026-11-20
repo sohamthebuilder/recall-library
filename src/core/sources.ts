@@ -3,6 +3,8 @@ import { sources } from "@/db/schema";
 import type { CoreDeps } from "./core";
 import { NotFoundError, ValidationError } from "./errors";
 import { enqueueJob } from "./jobs";
+import { markdownUpload } from "./source-kinds";
+import { addUploadedSource, type UploadedFile } from "./uploads";
 
 export type SourceKind = "url" | "youtube" | "pdf" | "markdown" | "note";
 
@@ -29,10 +31,13 @@ export interface Library {
   sources: Source[];
 }
 
-export type AddSourceInput = { kind: "note"; title?: string | null; text: string };
+export type AddSourceInput =
+  | { kind: "note"; title?: string | null; text: string }
+  | { kind: "markdown"; file: UploadedFile };
 
 /** Add a Source and start processing it in the background. It begins `pending`. */
 export async function addSource(deps: CoreDeps, input: AddSourceInput): Promise<Source> {
+  if (input.kind === "markdown") return addUploadedSource(deps, input.file, markdownUpload);
   const text = input.text.trim();
   if (!text) throw new ValidationError("A Note needs some text.");
   const title = input.title?.trim() || null;

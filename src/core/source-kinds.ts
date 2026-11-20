@@ -1,4 +1,6 @@
 import type { CoreDeps } from "./core";
+import { ValidationError } from "./errors";
+import { readUploadedFile, type UploadRule } from "./uploads";
 import type { SourceKind, SourceRow } from "./sources";
 
 /**
@@ -52,6 +54,34 @@ const note = defineSourceKind<string>({
   extract: async (_deps, _source, text) => ({ segments: [{ text }] }),
 });
 
+/** What a .md upload accepts. Markdown is kept as written: the Source's text is the file's text. */
+export const markdownUpload: UploadRule = {
+  kind: "markdown",
+  extensions: [".md", ".markdown"],
+  contentType: "text/markdown",
+  maxBytes: 4 * 1024 * 1024,
+  label: "a .md file",
+  validate(bytes) {
+    try {
+      decodeUtf8(bytes);
+    } catch {
+      throw new ValidationError("That file isn't readable text. Save it as UTF-8 and upload it again.");
+    }
+  },
+};
+
+/** An uploaded .md file: read it back from the file store; its text is one segment. */
+const markdown = defineSourceKind<string>({
+  fetch: async (deps, source) => decodeUtf8((await readUploadedFile(deps, source)).bytes),
+  extract: async (_deps, _source, text) => ({ segments: [{ text: text.replace(/\r\n?/g, "\n").trim() }] }),
+});
+
+/** Strict UTF-8 (throws on invalid bytes); a leading BOM is dropped. */
+function decodeUtf8(bytes: Uint8Array): string {
+  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+}
+
 export const sourceKindHandlers: Partial<Record<SourceKind, SourceKindHandler>> = {
   note,
+  markdown,
 };
