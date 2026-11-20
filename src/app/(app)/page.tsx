@@ -5,6 +5,7 @@ import { AddNoteForm } from "./add-note-form";
 import { AddUrlForm } from "./add-url-form";
 import { AddYouTubeForm } from "./add-youtube-form";
 import { SourceMeta, sourceDisplayTitle } from "./source-meta";
+import { QuickAddForm } from "./quick-add-form";
 import { UploadMarkdownForm } from "./upload-markdown-form";
 import { RefreshWhileProcessing, StatusBadge } from "./source-status";
 
@@ -17,6 +18,10 @@ export default async function LibraryPage() {
     <div className="two-column">
       <RefreshWhileProcessing active={sources.some((s) => isSourceProcessing(s.status))} />
       <div className="stack">
+        <section className="panel" aria-labelledby="quick-add">
+          <h2 id="quick-add">Add a link</h2>
+          <QuickAddForm />
+        </section>
         <section className="panel" aria-labelledby="add-youtube">
           <h2 id="add-youtube">Add a YouTube video</h2>
           <AddYouTubeForm />
