@@ -14,6 +14,7 @@ export type {
   ExplainerVersion,
   ExplainerVersionCause,
   ExplainerVersionSummary,
+  SwitchExplainerFormInput,
 } from "./explainers";
 export type {
   ExplainerCitation,
