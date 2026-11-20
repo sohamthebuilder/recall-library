@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How Kafka consumer groups share partitions &#8211; The Streaming Notebook</title>
+<meta property="og:title" content="How Kafka consumer groups share partitions">
+<meta property="og:site_name" content="The Streaming Notebook">
+<link rel="stylesheet" href="/wp-content/themes/notebook/style.css">
+<script>window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date());</script>
+<style>.site-header{display:flex}.cookie-banner{position:fixed}</style>
+</head>
+<body class="post-template-default single single-post">
+<div class="cookie-banner" role="dialog">We use cookies to improve your experience. <button>Accept all</button></div>
+<header class="site-header">
+  <a class="site-title" href="/">The Streaming Notebook</a>
+  <nav class="main-navigation">
+    <ul><li><a href="/">Home</a></li><li><a href="/archive">Archive</a></li><li><a href="/about">About</a></li><li><a href="/subscribe">Subscribe</a></li></ul>
+  </nav>
+</header>
+<div id="content" class="site-content">
+<main id="main" class="site-main">
+<article id="post-412" class="post-412 post type-post status-publish">
+  <header class="entry-header">
+    <h1 class="entry-title">How Kafka consumer groups share partitions</h1>
+    <div class="entry-meta"><span class="posted-on">Posted on <time datetime="2025-09-14">14 September 2025</time></span> by <span class="author">Priya N.</span></div>
+  </header>
+  <div class="entry-content">
+    <p>A consumer group is a set of consumers that cooperate to read a topic. Kafka assigns each partition of the topic to exactly one consumer in the group, so the work is split without two consumers ever reading the same message.</p>
+    <p>When a consumer joins or leaves, the group <strong>rebalances</strong>: the group coordinator takes the partitions back and hands them out again. During a rebalance nobody in the group makes progress, which is why long rebalances show up as consumer lag.</p>
+    <h2>Offsets record progress</h2>
+    <p>Each consumer commits an offset per partition. The offset says how far the group has read, so after a rebalance the new owner of a partition can carry on from the last committed position instead of starting again.</p>
+    <ul>
+      <li>Commit after processing to get at-least-once delivery.</li>
+      <li>Commit before processing to get at-most-once delivery.</li>
+    </ul>
+    <h2>More consumers than partitions</h2>
+    <p>A group can never have more active consumers than the topic has partitions. Extra consumers sit idle, waiting for a partition to free up. If you need more parallelism, add partitions first.</p>
+    <blockquote><p>Partitions are the unit of parallelism in Kafka.</p></blockquote>
+    <p>That is the whole trick: partitions bound parallelism, offsets bound replay, and the coordinator keeps the two in step.</p>
+  </div>
+  <footer class="entry-footer"><span class="cat-links">Posted in <a href="/category/kafka">Kafka</a></span> <span class="tags-links">Tagged <a href="/tag/consumers">consumers</a></span></footer>
+</article>
+<div class="share-buttons"><a href="#">Share on X</a> <a href="#">Share on LinkedIn</a></div>
+<nav class="post-navigation"><a href="/2025/09/kafka-topics">Previous: What is a Kafka topic?</a> <a href="/2025/10/kafka-transactions">Next: Kafka transactions explained</a></nav>
+<div id="comments" class="comments-area">
+  <h2 class="comments-title">3 thoughts on &ldquo;How Kafka consumer groups share partitions&rdquo;</h2>
+  <ol class="comment-list">
+    <li class="comment"><div class="comment-content"><p>Great post, thanks!</p></div></li>
+    <li class="comment"><div class="comment-content"><p>What about static membership?</p></div></li>
+  </ol>
+</div>
+</main>
+<aside id="secondary" class="widget-area">
+  <section class="widget widget_recent_entries"><h2 class="widget-title">Recent posts</h2><ul><li><a href="/a">Kafka transactions explained</a></li><li><a href="/b">Exactly-once in practice</a></li></ul></section>
+  <section class="widget"><h2 class="widget-title">Newsletter</h2><p>Get new posts by email. No spam.</p><form><input type="email"><button>Sign up</button></form></section>
+</aside>
+</div>
+<footer class="site-footer"><p>&copy; 2025 The Streaming Notebook. All rights reserved.</p><a href="/privacy">Privacy</a></footer>
+<script src="/wp-includes/js/wp-embed.min.js"></script>
+</body>
+</html>

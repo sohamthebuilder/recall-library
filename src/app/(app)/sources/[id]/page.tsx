@@ -3,12 +3,11 @@ import { notFound } from "next/navigation";
 import { isSourceProcessing, NotFoundError } from "@/core";
 import { getCore } from "@/server/core";
 import { retrySource } from "../../actions";
+import { SourceMeta, sourceDisplayTitle } from "../../source-meta";
 import { RefreshWhileProcessing, StatusBadge } from "../../source-status";
 import { ProposalCard } from "./proposal-card";
 
 export const dynamic = "force-dynamic";
-
-const dateFormat = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" });
 
 export default async function SourcePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -32,11 +31,11 @@ export default async function SourcePage({ params }: { params: Promise<{ id: str
           <Link href="/">← Library</Link>
         </p>
         <div className="row-between">
-          <h2 id="source-title">{source.title ?? "Untitled Note"}</h2>
+          <h2 id="source-title">{sourceDisplayTitle(source)}</h2>
           <StatusBadge status={source.status} />
         </div>
-        <div className="source-meta" style={{ marginBottom: 12 }}>
-          Note · added <time dateTime={source.addedAt.toISOString()}>{dateFormat.format(source.addedAt)}</time>
+        <div style={{ marginBottom: 12 }}>
+          <SourceMeta source={source} />
         </div>
         {source.status === "failed" ? (
           <form action={retrySource.bind(null, source.id)}>

@@ -315,3 +315,15 @@ button.danger {
 .topic-grid p {
   margin: 0 0 8px;
 }
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-self: start;
+}
+
+.source-link {
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
