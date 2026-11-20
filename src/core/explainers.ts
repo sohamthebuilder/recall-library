@@ -13,6 +13,7 @@ import {
 } from "./explainer-content";
 import { enqueueJob } from "./jobs";
 import { AiError, type ExplainerPassage } from "./ports/ai";
+import { onExplainerVersionSaved } from "./recall-prompts";
 
 /**
  * Explainers (ADR 0001). A Topic gets exactly one Explainer, once it has an approved Source.
@@ -259,8 +260,8 @@ export interface SaveExplainerVersionInput {
  * version, and move the current pointer to it. Throws ValidationError (with the problems)
  * if the content is not a valid Explainer; nothing is saved then.
  *
- * Work that reacts to a new current version (Recall Prompt generation/reconciliation, #5/#17)
- * hooks in here, e.g. by enqueueing a job on `tx`.
+ * Every new current version queues the Topic's Recall Prompts update (generation the first
+ * time, reconciliation after: #17).
  */
 export async function saveExplainerVersion(
   tx: DbOrTx,
@@ -285,10 +286,12 @@ export async function saveExplainerVersion(
       createdAt: now,
     })
     .returning();
-  await tx
+  const [{ topicId } = { topicId: undefined }] = await tx
     .update(explainers)
     .set({ currentVersionId: version!.id, status: "ready", failureReason: null })
-    .where(eq(explainers.id, input.explainerId));
+    .where(eq(explainers.id, input.explainerId))
+    .returning({ topicId: explainers.topicId });
+  await onExplainerVersionSaved(tx, now, topicId!);
   return toVersion(version!);
 }
 

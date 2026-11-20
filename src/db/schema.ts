@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -196,6 +197,50 @@ export const explainerVersions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },
   (t) => [uniqueIndex("explainer_versions_explainer_number").on(t.explainerId, t.number)],
+);
+
+export const recallPromptKind = pgEnum("recall_prompt_kind", ["explain", "compare", "apply", "why"]);
+/** Who wrote a Recall Prompt's current wording. Reconciliation (#17) only touches `generated` ones. */
+export const recallPromptOrigin = pgEnum("recall_prompt_origin", ["generated", "learner_edited", "learner_written"]);
+/** `suspended` = paused by the learner; `retired` = dropped by reconciliation (#17), history kept. */
+export const recallPromptState = pgEnum("recall_prompt_state", ["active", "suspended", "retired"]);
+/** FSRS card state (ts-fsrs `State`: New, Learning, Review, Relearning). */
+export const fsrsCardState = pgEnum("fsrs_card_state", ["new", "learning", "review", "relearning"]);
+
+/**
+ * A Recall Prompt on a Topic. `expected_points` is a jsonb string[] (from the Explainer, or the
+ * learner's). Deleting is soft (`deleted_at`), so its Reviews (#6) keep pointing at it.
+ * The `fsrs_*`/`due` columns are the per-prompt FSRS memory state (#6 updates them on a Review).
+ */
+export const recallPrompts = pgTable(
+  "recall_prompts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    topicId: uuid("topic_id")
+      .notNull()
+      .references(() => topics.id, { onDelete: "cascade" }),
+    kind: recallPromptKind("kind").notNull(),
+    question: text("question").notNull(),
+    expectedPoints: jsonb("expected_points").$type<string[]>().notNull(),
+    origin: recallPromptOrigin("origin").notNull(),
+    state: recallPromptState("state").notNull().default("active"),
+    /** The Explainer version a generated prompt was made from (or last reconciled against). */
+    explainerVersionId: uuid("explainer_version_id").references(() => explainerVersions.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    // FSRS memory state. A new prompt is due at once, with no stability/difficulty yet.
+    due: timestamp("due", { withTimezone: true }).notNull(),
+    stability: doublePrecision("stability"),
+    difficulty: doublePrecision("difficulty"),
+    fsrsState: fsrsCardState("fsrs_state").notNull().default("new"),
+    reps: integer("reps").notNull().default(0),
+    lapses: integer("lapses").notNull().default(0),
+    /** ts-fsrs `learning_steps`. */
+    learningSteps: integer("learning_steps").notNull().default(0),
+    lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }),
+  },
+  (t) => [index("recall_prompts_topic").on(t.topicId), index("recall_prompts_due").on(t.state, t.due)],
 );
 
 export const jobStatus = pgEnum("job_status", ["queued", "running", "done", "failed"]);

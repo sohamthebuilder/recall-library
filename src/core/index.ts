@@ -25,6 +25,15 @@ export type {
   ExplainerStep,
 } from "./explainer-content";
 export type { ImportTopicsResult } from "./topic-import";
+export type {
+  AddRecallPromptInput,
+  EditRecallPromptInput,
+  RecallPrompt,
+  RecallPromptKind,
+  RecallPromptOrigin,
+  RecallPromptState,
+} from "./recall-prompts";
+export { RECALL_PROMPT_KINDS, recallPromptKindLabel } from "./recall-prompt-kinds";
 export type { RunJobsOptions, RunJobsResult } from "./jobs";
 export type { AiAdapter, ExplainerPassage, GenerateExplainerInput, TopicCandidate } from "./ports/ai";
 export { AiError } from "./ports/ai";

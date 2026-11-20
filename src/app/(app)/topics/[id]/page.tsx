@@ -7,6 +7,7 @@ import { AddTagForm } from "./add-tag-form";
 import { DeleteTopicButton } from "./delete-topic-button";
 import { ExplainerPanel } from "./explainer-panel";
 import { LinkSourceForm } from "./link-source-form";
+import { RecallPromptsPanel } from "./recall-prompts-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -15,9 +16,9 @@ const dateFormat = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" });
 export default async function TopicPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const core = getCore();
-  let topic, explainer;
+  let topic, explainer, prompts;
   try {
-    [topic, explainer] = await Promise.all([core.topic(id), core.explainer(id)]);
+    [topic, explainer, prompts] = await Promise.all([core.topic(id), core.explainer(id), core.recallPrompts(id)]);
   } catch (e) {
     if (e instanceof NotFoundError) notFound();
     throw e;
@@ -89,6 +90,7 @@ export default async function TopicPage({ params }: { params: Promise<{ id: stri
             )}
             <LinkSourceForm topicId={topic.id} sources={linkable} />
           </section>
+          <RecallPromptsPanel topicId={topic.id} explainer={explainer} prompts={prompts} />
         </aside>
       </div>
     </>

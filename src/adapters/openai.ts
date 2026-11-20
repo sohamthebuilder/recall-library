@@ -4,7 +4,9 @@ import {
   type AiAdapter,
   type ConfirmTopicMatchInput,
   type GenerateExplainerInput,
+  type GenerateRecallPromptsInput,
   type ProposeTopicsInput,
+  type RecallPromptDraft,
   type TopicCandidate,
 } from "@/core/ports/ai";
 import { EMBEDDING_DIMENSIONS } from "@/db/schema";
@@ -226,6 +228,56 @@ export function createOpenAiAdapter(options: OpenAiOptions): AiAdapter {
         steps: [],
       };
     },
+
+    async generateRecallPrompts({ topic, explainer }: GenerateRecallPromptsInput): Promise<RecallPromptDraft[]> {
+      const result = await structured<{ prompts: RecallPromptDraft[] }>(
+        "recall_prompts",
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["prompts"],
+          properties: {
+            prompts: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["kind", "question", "expectedPoints"],
+                properties: {
+                  kind: { type: "string", enum: ["explain", "compare", "apply", "why"] },
+                  question: { type: "string" },
+                  expectedPoints: { type: "array", items: { type: "string" } },
+                },
+              },
+            },
+          },
+        },
+        [
+          "You write Recall Prompts: questions a learner answers from memory, in their own words, to show they understand a Topic.",
+          "Use ONLY the Explainer given. Write 4-8 prompts, at least one of each kind:",
+          "explain (explain the idea or mechanism), compare (contrast with a related idea in the Explainer),",
+          "apply (use it in a concrete scenario), why (the reason something is so).",
+          "Test understanding, not definitions or trivia. One clear question each.",
+          "expectedPoints: 1-4 short points a good answer covers, taken from the Explainer's key points.",
+        ].join("\n"),
+        [
+          `Topic: ${describe(topic)}`,
+          `Explainer: ${explainer.title}`,
+          ...explainer.keyPoints.map((k) => `- ${k.text}`),
+          ...(explainer.analogy ? [`Analogy: ${explainer.analogy}`] : []),
+          ...(explainer.diagram.edges.length > 0
+            ? [
+                "Diagram:",
+                ...explainer.diagram.edges.map((e) => {
+                  const label = (id: string) => explainer.diagram.nodes.find((n) => n.id === id)?.label ?? id;
+                  return `- ${label(e.from)} ${e.label ?? "->"} ${label(e.to)}`;
+                }),
+              ]
+            : []),
+        ].join("\n"),
+      );
+      return result.prompts;
+    },
   };
 }
 
@@ -249,7 +301,13 @@ export function openAiFromEnv(): AiAdapter {
     const missing = async (): Promise<never> => {
       throw new AiError("The AI service is not configured (OPENAI_API_KEY is not set).");
     };
-    return { embed: missing, proposeTopics: missing, confirmTopicMatch: missing, generateExplainer: missing };
+    return {
+      embed: missing,
+      proposeTopics: missing,
+      confirmTopicMatch: missing,
+      generateExplainer: missing,
+      generateRecallPrompts: missing,
+    };
   }
   return createOpenAiAdapter({
     apiKey,

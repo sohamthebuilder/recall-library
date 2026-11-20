@@ -1,4 +1,4 @@
-import type { ExplainerDraft } from "../explainer-content";
+import type { ExplainerContent, ExplainerDraft } from "../explainer-content";
 
 /**
  * AI adapter: every model call the core makes goes through here.
@@ -27,6 +27,25 @@ export interface AiAdapter {
    * so returning something malformed is safe (it is rejected), just wasteful.
    */
   generateExplainer(input: GenerateExplainerInput): Promise<ExplainerDraft>;
+
+  /**
+   * Recall Prompts for a Topic, from its current Explainer: a mix of all four kinds, each with
+   * the key points a good answer covers (taken from the Explainer). The core validates them.
+   */
+  generateRecallPrompts(input: GenerateRecallPromptsInput): Promise<RecallPromptDraft[]>;
+}
+
+export type RecallPromptKind = "explain" | "compare" | "apply" | "why";
+
+export interface GenerateRecallPromptsInput {
+  topic: { name: string; description: string | null };
+  explainer: ExplainerContent;
+}
+
+export interface RecallPromptDraft {
+  kind: RecallPromptKind;
+  question: string;
+  expectedPoints: string[];
 }
 
 export interface GenerateExplainerInput {
