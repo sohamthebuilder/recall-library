@@ -4,6 +4,7 @@ import { NotFoundError } from "@/core";
 import { getCore } from "@/server/core";
 import { deleteTopic } from "../../actions";
 import { DeleteTopicButton } from "./delete-topic-button";
+import { untitled } from "../../source-kind";
 import { LinkSourceForm } from "./link-source-form";
 
 export const dynamic = "force-dynamic";
@@ -48,7 +49,7 @@ export default async function TopicPage({ params }: { params: Promise<{ id: stri
             {topic.sources.map((source) => (
               <li key={source.id} className="panel source-item">
                 <h3>
-                  <Link href={`/sources/${source.id}`}>{source.title ?? "Untitled Note"}</Link>
+                  <Link href={`/sources/${source.id}`}>{source.title ?? untitled(source.kind)}</Link>
                 </h3>
                 <div className="source-meta">
                   Note · added{" "}
