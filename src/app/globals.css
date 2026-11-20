@@ -333,3 +333,79 @@ button.danger {
   margin-top: 2px;
   overflow-wrap: anywhere;
 }
+
+/* Tags */
+.tag-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+}
+
+.tag form {
+  display: inline;
+}
+
+.tag-remove {
+  border: none;
+  background: none;
+  padding: 0 2px;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.tag-form {
+  margin-bottom: 16px;
+}
+
+.tag-form .button-row input {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.topic-filter {
+  margin-bottom: 16px;
+}
+
+.tag-filter {
+  border: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.tag-filter legend {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+  padding: 0;
+}
+
+.tag-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: normal;
+  margin: 0;
+}
+
+.tag-option input {
+  width: auto;
+  margin: 0;
+}
