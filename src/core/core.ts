@@ -7,6 +7,7 @@ import type { Clock } from "./ports/clock";
 import type { ContentFetcher } from "./ports/content-fetcher";
 import type { FileStore } from "./ports/file-store";
 import { addSource, getSource, library, retrySource } from "./sources";
+import { type FindTopicsInput, findTopics, listTags, tagTopic, untagTopic } from "./tags";
 import {
   approveTopic,
   deleteTopic,
@@ -50,6 +51,13 @@ export function createCore(deps: CoreDeps) {
     topics: () => listTopics(deps),
     topic: (topicId: string) => getTopic(deps, topicId),
     deleteTopic: (topicId: string) => deleteTopic(deps, topicId),
+
+    // Tags
+    tagTopic: (input: Arg<typeof tagTopic>) => tagTopic(deps, input),
+    untagTopic: (input: Arg<typeof untagTopic>) => untagTopic(deps, input),
+    tags: () => listTags(deps),
+    /** Topics by name search and/or Tags (all of them). Practice by Tag uses `{ tagIds: [id] }`. */
+    findTopics: (input?: FindTopicsInput) => findTopics(deps, input),
 
     /** Drain the background job queue. See jobs.ts. */
     runJobs: (options?: RunJobsOptions) => runJobs(deps, jobHandlers, options),

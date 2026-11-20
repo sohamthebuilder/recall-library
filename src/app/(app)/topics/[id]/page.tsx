@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { NotFoundError } from "@/core";
 import { getCore } from "@/server/core";
-import { deleteTopic } from "../../actions";
+import { deleteTopic, untagTopic } from "../../actions";
+import { AddTagForm } from "./add-tag-form";
 import { DeleteTopicButton } from "./delete-topic-button";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ export default async function TopicPage({ params }: { params: Promise<{ id: stri
     if (e instanceof NotFoundError) notFound();
     throw e;
   }
+  const allTags = await getCore().tags();
 
   return (
     <div className="two-column wide-right">
@@ -27,6 +29,26 @@ export default async function TopicPage({ params }: { params: Promise<{ id: stri
         </p>
         <h2 id="topic-name">{topic.name}</h2>
         {topic.description ? <p className="muted">{topic.description}</p> : null}
+
+        <h3 className="subheading">Tags</h3>
+        {topic.tags.length === 0 ? (
+          <p className="muted">No Tags yet.</p>
+        ) : (
+          <ul className="tag-list" aria-label="Tags">
+            {topic.tags.map((tag) => (
+              <li key={tag.id} className="tag">
+                <Link href={`/topics?tag=${tag.id}`}>{tag.name}</Link>
+                <form action={untagTopic.bind(null, topic.id, tag.id)}>
+                  <button type="submit" className="tag-remove" aria-label={`Remove Tag ${tag.name}`}>
+                    ×
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+        <AddTagForm topicId={topic.id} existingTags={allTags.map((t) => t.name)} />
+
         <form action={deleteTopic.bind(null, topic.id)}>
           <DeleteTopicButton name={topic.name} />
         </form>

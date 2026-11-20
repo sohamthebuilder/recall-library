@@ -77,6 +77,23 @@ export async function decideTopicProposal(
   return state;
 }
 
+/** Put a Tag (by name) on a Topic. */
+export async function tagTopic(topicId: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  await requireLearner();
+  const state = await attempt(() => getCore().tagTopic({ topicId, name: String(formData.get("name") ?? "") }));
+  revalidatePath(`/topics/${topicId}`);
+  revalidatePath("/topics");
+  return state;
+}
+
+/** Take a Tag off a Topic. */
+export async function untagTopic(topicId: string, tagId: string): Promise<void> {
+  await requireLearner();
+  await attempt(() => getCore().untagTopic({ topicId, tagId }));
+  revalidatePath(`/topics/${topicId}`);
+  revalidatePath("/topics");
+}
+
 export async function deleteTopic(topicId: string): Promise<void> {
   await requireLearner();
   try {

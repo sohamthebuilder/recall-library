@@ -92,6 +92,31 @@ export const topicSources = pgTable(
   (t) => [primaryKey({ columns: [t.topicId, t.sourceId] }), index("topic_sources_source").on(t.sourceId)],
 );
 
+/** A flat label grouping related Topics. No hierarchy: a Tag is just a name. */
+export const tags = pgTable(
+  "tags",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [uniqueIndex("tags_name_lower").on(sql`lower(${t.name})`)],
+);
+
+/** Which Tags a Topic has. */
+export const topicTags = pgTable(
+  "topic_tags",
+  {
+    topicId: uuid("topic_id")
+      .notNull()
+      .references(() => topics.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.topicId, t.tagId] }), index("topic_tags_tag").on(t.tagId)],
+);
+
 export const topicProposalStatus = pgEnum("topic_proposal_status", ["pending", "approved", "rejected"]);
 
 /** A Topic the AI proposed for a Source, waiting for the learner's decision. */

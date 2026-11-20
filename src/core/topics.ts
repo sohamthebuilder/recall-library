@@ -5,6 +5,7 @@ import type { CoreDeps } from "./core";
 import { NotFoundError, ValidationError } from "./errors";
 import type { TopicCandidate } from "./ports/ai";
 import { type Source, sourceRow, toSource } from "./sources";
+import { type Tag, tagsOfTopic } from "./tags";
 
 /** How many nearest existing Topics the AI is asked to choose a match from. */
 const MATCH_CANDIDATES = 5;
@@ -22,6 +23,8 @@ export interface TopicSummary {
 export interface TopicDetail extends TopicSummary {
   /** The Sources the Topic draws on, newest link first. */
   sources: Source[];
+  /** The Topic's Tags, by name. */
+  tags: Tag[];
 }
 
 export type TopicProposalStatus = "pending" | "approved" | "rejected";
@@ -177,6 +180,7 @@ export async function getTopic(deps: CoreDeps, topicId: string): Promise<TopicDe
     description: topic.description,
     sourceCount: linked.length,
     sources: linked.map((r) => toSource(r.source)),
+    tags: await tagsOfTopic(deps.db, topicId),
   };
 }
 
