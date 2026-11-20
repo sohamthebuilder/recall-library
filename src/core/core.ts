@@ -1,13 +1,13 @@
 import type { Db } from "@/db/types";
 import { chunksOfSource, similarChunks } from "./chunks";
-import { getExplainer, listExplainerVersions, retryExplainer } from "./explainers";
+import { countExplainersCitingSource, getExplainer, listExplainerVersions, retryExplainer } from "./explainers";
 import { jobHandlers } from "./job-handlers";
 import { runJobs, type RunJobsOptions } from "./jobs";
 import type { AiAdapter } from "./ports/ai";
 import type { Clock } from "./ports/clock";
 import type { ContentFetcher } from "./ports/content-fetcher";
 import type { FileStore } from "./ports/file-store";
-import { addSource, getSource, library, retrySource } from "./sources";
+import { addSource, deleteSource, getSource, library, retrySource } from "./sources";
 import { type FindTopicsInput, findTopics, listTags, tagTopic, untagTopic } from "./tags";
 import { importTopics, linkSourceByHand } from "./topic-import";
 import {
@@ -42,6 +42,10 @@ export function createCore(deps: CoreDeps) {
     library: () => library(deps),
     source: (sourceId: string) => getSource(deps, sourceId),
     retrySource: (sourceId: string) => retrySource(deps, sourceId),
+    /** Delete a Source; Explainers citing it are left unchanged ("Source removed"). */
+    deleteSource: (sourceId: string) => deleteSource(deps, sourceId),
+    /** How many Explainers cite the Source (current versions): the warning before deleting it. */
+    explainersCitingSource: (sourceId: string) => countExplainersCitingSource(deps, sourceId),
     sourceChunks: (sourceId: string) => chunksOfSource(deps, sourceId),
     similarChunks: (input: Arg<typeof similarChunks>) => similarChunks(deps, input),
 
