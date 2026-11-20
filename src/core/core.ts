@@ -7,6 +7,7 @@ import type { Clock } from "./ports/clock";
 import type { ContentFetcher } from "./ports/content-fetcher";
 import type { FileStore } from "./ports/file-store";
 import { addSource, getSource, library, retrySource } from "./sources";
+import { importTopics, linkSourceByHand } from "./topic-import";
 import {
   approveTopic,
   deleteTopic,
@@ -50,6 +51,8 @@ export function createCore(deps: CoreDeps) {
     topics: () => listTopics(deps),
     topic: (topicId: string) => getTopic(deps, topicId),
     deleteTopic: (topicId: string) => deleteTopic(deps, topicId),
+    importTopics: (list: string) => importTopics(deps, list),
+    linkSourceToTopic: (input: Arg<typeof linkSourceByHand>) => linkSourceByHand(deps, input),
 
     /** Drain the background job queue. See jobs.ts. */
     runJobs: (options?: RunJobsOptions) => runJobs(deps, jobHandlers, options),
