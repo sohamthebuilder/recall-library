@@ -38,6 +38,23 @@ export async function addNote(_prev: AddNoteState, formData: FormData): Promise<
   return state;
 }
 
+/** Thin adapter from the link form to `addSource`. */
+export async function addUrl(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireLearner();
+  const state = await attempt(() =>
+    getCore().addSource({
+      kind: "url",
+      title: String(formData.get("title") ?? ""),
+      url: String(formData.get("url") ?? ""),
+    }),
+  );
+  if (state.ok) {
+    runJobsAfterResponse();
+    revalidatePath("/");
+  }
+  return state;
+}
+
 export async function retrySource(sourceId: string): Promise<void> {
   await requireLearner();
   const state = await attempt(() => getCore().retrySource(sourceId));

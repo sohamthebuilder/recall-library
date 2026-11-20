@@ -1,4 +1,5 @@
 import "server-only";
+import { createArticleFetcher } from "@/adapters/article-fetcher";
 import { contentFetcherNotYetAvailable, fileStoreNotYetAvailable } from "@/adapters/not-yet-available";
 import { openAiFromEnv } from "@/adapters/openai";
 import { createCore, systemClock, type Core } from "@/core";
@@ -11,7 +12,10 @@ export function getCore(): Core {
   core ??= createCore({
     db: getDb(),
     ai: openAiFromEnv(),
-    contentFetcher: contentFetcherNotYetAvailable,
+    contentFetcher: {
+      ...contentFetcherNotYetAvailable,
+      ...createArticleFetcher(),
+    },
     fileStore: fileStoreNotYetAvailable,
     clock: systemClock,
   });
