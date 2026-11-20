@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCore } from "@/server/core";
+import { ImportTopicsForm } from "./import-topics-form";
 
 export const dynamic = "force-dynamic";
 
@@ -11,8 +12,12 @@ export default async function TopicsPage() {
       <h2 id="topics" style={{ marginTop: 0 }}>
         Topics
       </h2>
+      <details className="panel" open={topics.length === 0} style={{ marginBottom: 16 }}>
+        <summary>Add Topics from a list</summary>
+        <ImportTopicsForm />
+      </details>
       {topics.length === 0 ? (
-        <p className="muted">No Topics yet. Add a Source and approve the Topics it proposes.</p>
+        <p className="muted">No Topics yet. Paste a list above, or add a Source and approve the Topics it proposes.</p>
       ) : (
         <ul className="topic-grid">
           {topics.map((topic) => (

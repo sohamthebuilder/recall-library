@@ -4,6 +4,7 @@ import { NotFoundError, sourceDisplayName, sourceKindLabel } from "@/core";
 import { getCore } from "@/server/core";
 import { deleteTopic } from "../../actions";
 import { DeleteTopicButton } from "./delete-topic-button";
+import { LinkSourceForm } from "./link-source-form";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,10 @@ export default async function TopicPage({ params }: { params: Promise<{ id: stri
     if (e instanceof NotFoundError) notFound();
     throw e;
   }
+  const linked = new Set(topic.sources.map((s) => s.id));
+  const linkable = (await getCore().library()).sources
+    .filter((s) => !linked.has(s.id))
+    .map((s) => ({ id: s.id, title: s.title ?? "Untitled Source" }));
 
   return (
     <div className="two-column wide-right">
@@ -53,6 +58,7 @@ export default async function TopicPage({ params }: { params: Promise<{ id: stri
             ))}
           </ul>
         )}
+        <LinkSourceForm topicId={topic.id} sources={linkable} />
       </section>
     </div>
   );
