@@ -4,6 +4,7 @@ import { NotFoundError } from "@/core";
 import { getCore } from "@/server/core";
 import { deleteTopic } from "../../actions";
 import { DeleteTopicButton } from "./delete-topic-button";
+import { ExplainerPanel } from "./explainer-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -11,49 +12,58 @@ const dateFormat = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" });
 
 export default async function TopicPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  let topic;
+  const core = getCore();
+  let topic, explainer;
   try {
-    topic = await getCore().topic(id);
+    [topic, explainer] = await Promise.all([core.topic(id), core.explainer(id)]);
   } catch (e) {
     if (e instanceof NotFoundError) notFound();
     throw e;
   }
 
   return (
-    <div className="two-column wide-right">
-      <section className="panel" aria-labelledby="topic-name">
-        <p className="muted" style={{ margin: "0 0 8px" }}>
+    <>
+      <header className="topic-header">
+        <p className="muted" style={{ margin: "0 0 4px" }}>
           <Link href="/topics">← Topics</Link>
         </p>
-        <h2 id="topic-name">{topic.name}</h2>
+        <div className="row-between">
+          <h2 id="topic-name">{topic.name}</h2>
+          <form action={deleteTopic.bind(null, topic.id)}>
+            <DeleteTopicButton name={topic.name} />
+          </form>
+        </div>
         {topic.description ? <p className="muted">{topic.description}</p> : null}
-        <form action={deleteTopic.bind(null, topic.id)}>
-          <DeleteTopicButton name={topic.name} />
-        </form>
-      </section>
+      </header>
 
-      <section aria-labelledby="topic-sources">
-        <h2 id="topic-sources" style={{ marginTop: 0 }}>
-          Sources
-        </h2>
-        {topic.sources.length === 0 ? (
-          <p className="muted">Waiting for a Source.</p>
-        ) : (
-          <ul className="source-list">
-            {topic.sources.map((source) => (
-              <li key={source.id} className="panel source-item">
-                <h3>
-                  <Link href={`/sources/${source.id}`}>{source.title ?? "Untitled Note"}</Link>
-                </h3>
-                <div className="source-meta">
-                  Note · added{" "}
-                  <time dateTime={source.addedAt.toISOString()}>{dateFormat.format(source.addedAt)}</time>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
+      <div className="topic-layout">
+        <ExplainerPanel topicId={topic.id} explainer={explainer} />
+
+        <aside className="topic-aside">
+          <section aria-labelledby="topic-sources">
+            <h2 id="topic-sources" className="aside-heading">
+              Sources
+            </h2>
+            {topic.sources.length === 0 ? (
+              <p className="muted">Waiting for a Source.</p>
+            ) : (
+              <ul className="source-list">
+                {topic.sources.map((source) => (
+                  <li key={source.id} className="panel source-item">
+                    <h3>
+                      <Link href={`/sources/${source.id}`}>{source.title ?? "Untitled Source"}</Link>
+                    </h3>
+                    <div className="source-meta">
+                      Added{" "}
+                      <time dateTime={source.addedAt.toISOString()}>{dateFormat.format(source.addedAt)}</time>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </aside>
+      </div>
+    </>
   );
 }

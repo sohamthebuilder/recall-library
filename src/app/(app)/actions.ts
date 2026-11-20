@@ -77,6 +77,13 @@ export async function decideTopicProposal(
   return state;
 }
 
+export async function retryExplainer(topicId: string): Promise<void> {
+  await requireLearner();
+  const state = await attempt(() => getCore().retryExplainer(topicId));
+  if (state.ok) runJobsAfterResponse();
+  revalidatePath(`/topics/${topicId}`);
+}
+
 export async function deleteTopic(topicId: string): Promise<void> {
   await requireLearner();
   try {

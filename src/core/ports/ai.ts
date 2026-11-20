@@ -1,3 +1,5 @@
+import type { ExplainerDraft } from "../explainer-content";
+
 /**
  * AI adapter: every model call the core makes goes through here.
  * Real implementation: src/adapters/openai.ts. Fake: src/adapters/fakes/fake-ai.ts.
@@ -18,6 +20,25 @@ export interface AiAdapter {
    * or null if none is. Must return one of the given ids or null.
    */
   confirmTopicMatch(input: ConfirmTopicMatchInput): Promise<string | null>;
+
+  /**
+   * A first Explainer for a Topic, built only from these Source passages. Every citation must
+   * name one of the given passages' chunkIds. The core validates the result before saving it,
+   * so returning something malformed is safe (it is rejected), just wasteful.
+   */
+  generateExplainer(input: GenerateExplainerInput): Promise<ExplainerDraft>;
+}
+
+export interface GenerateExplainerInput {
+  topic: { name: string; description: string | null };
+  /** The passages to explain and cite, most relevant first. */
+  passages: ExplainerPassage[];
+}
+
+export interface ExplainerPassage {
+  chunkId: string;
+  sourceTitle: string | null;
+  text: string;
 }
 
 export interface ProposeTopicsInput {

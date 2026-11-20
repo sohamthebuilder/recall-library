@@ -1,7 +1,9 @@
+import type { ExplainerDraft } from "@/core/explainer-content";
 import {
   AiError,
   type AiAdapter,
   type ConfirmTopicMatchInput,
+  type GenerateExplainerInput,
   type ProposeTopicsInput,
   type TopicCandidate,
 } from "@/core/ports/ai";
@@ -140,7 +142,100 @@ export function createOpenAiAdapter(options: OpenAiOptions): AiAdapter {
       );
       return existing[result.match - 1]?.id ?? null;
     },
+
+    async generateExplainer({ topic, passages }: GenerateExplainerInput): Promise<ExplainerDraft> {
+      const nullableString = { type: ["string", "null"] };
+      const result = await structured<GeneratedExplainer>(
+        "explainer",
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["title", "keyPoints", "analogy", "groups", "nodes", "edges"],
+          properties: {
+            title: { type: "string" },
+            keyPoints: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["text", "passages"],
+                properties: { text: { type: "string" }, passages: { type: "array", items: { type: "integer" } } },
+              },
+            },
+            analogy: nullableString,
+            groups: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["id", "label"],
+                properties: { id: { type: "string" }, label: { type: "string" } },
+              },
+            },
+            nodes: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["id", "label", "groupId"],
+                properties: { id: { type: "string" }, label: { type: "string" }, groupId: nullableString },
+              },
+            },
+            edges: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["from", "to", "label"],
+                properties: { from: { type: "string" }, to: { type: "string" }, label: nullableString },
+              },
+            },
+          },
+        },
+        [
+          "You write an Explainer: one condensed, visual explanation of a Topic for a learner to study and be tested on.",
+          "Use ONLY the numbered passages given; never add facts from general knowledge.",
+          "title: a short headline. keyPoints: 3-7 points, each one or two plain sentences,",
+          "each citing the numbers of the passages it comes from (at least one).",
+          "analogy: one short everyday analogy if it genuinely helps, else null.",
+          "Diagram: 3-12 nodes with short labels (max ~4 words) showing the Topic's structure or flow;",
+          "edges join node ids with an optional short label (a verb such as 'sends to');",
+          "groups (optional) cluster related nodes; a node's groupId is a group id or null.",
+        ].join("\n"),
+        [
+          `Topic: ${describe(topic)}`,
+          "",
+          ...passages.map((p, i) => `[${i + 1}]${p.sourceTitle ? ` (${p.sourceTitle})` : ""}\n${p.text}\n`),
+        ].join("\n"),
+      );
+      return {
+        form: "infographic",
+        title: result.title,
+        keyPoints: result.keyPoints.map((k, i) => ({
+          id: `kp${i + 1}`,
+          text: k.text,
+          // An out-of-range number becomes an unknown chunk, so the core rejects the draft.
+          citations: k.passages.map((n) => ({ chunkId: passages[n - 1]?.chunkId ?? `unknown-passage-${n}` })),
+        })),
+        analogy: result.analogy || null,
+        diagram: {
+          groups: result.groups,
+          nodes: result.nodes,
+          edges: result.edges.map((e, i) => ({ id: `e${i + 1}`, ...e })),
+        },
+        steps: [],
+      };
+    },
   };
+}
+
+interface GeneratedExplainer {
+  title: string;
+  keyPoints: { text: string; passages: number[] }[];
+  analogy: string | null;
+  groups: { id: string; label: string }[];
+  nodes: { id: string; label: string; groupId: string | null }[];
+  edges: { from: string; to: string; label: string | null }[];
 }
 
 function describe(t: { name: string; description: string | null }): string {
@@ -154,7 +249,7 @@ export function openAiFromEnv(): AiAdapter {
     const missing = async (): Promise<never> => {
       throw new AiError("The AI service is not configured (OPENAI_API_KEY is not set).");
     };
-    return { embed: missing, proposeTopics: missing, confirmTopicMatch: missing };
+    return { embed: missing, proposeTopics: missing, confirmTopicMatch: missing, generateExplainer: missing };
   }
   return createOpenAiAdapter({
     apiKey,

@@ -22,6 +22,20 @@
       "when": 1795166738436,
       "tag": "0002_source_processing_and_topics",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795167577084,
+      "tag": "0003_explainers",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795167581353,
+      "tag": "0004_explainer_versions_immutable",
+      "breakpoints": true
     }
   ]
 }

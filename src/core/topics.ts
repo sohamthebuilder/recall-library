@@ -3,6 +3,7 @@ import { sources, topicProposals, topicSources, topics } from "@/db/schema";
 import type { DbOrTx } from "@/db/types";
 import type { CoreDeps } from "./core";
 import { NotFoundError, ValidationError } from "./errors";
+import { onSourceLinked } from "./explainers";
 import type { TopicCandidate } from "./ports/ai";
 import { type Source, sourceRow, toSource } from "./sources";
 
@@ -285,7 +286,9 @@ export async function linkSourceToTopic(
     .values({ ...link, linkedAt: now })
     .onConflictDoNothing()
     .returning({ topicId: topicSources.topicId });
-  return inserted.length > 0;
+  if (inserted.length === 0) return false;
+  await onSourceLinked(tx, now, link);
+  return true;
 }
 
 async function pendingProposal(deps: CoreDeps, proposalId: string) {

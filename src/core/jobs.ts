@@ -17,6 +17,7 @@ import type { CoreDeps } from "./core";
  */
 export interface JobPayloads {
   process_source: { sourceId: string };
+  generate_explainer: { topicId: string };
 }
 
 export type JobKind = keyof JobPayloads;
