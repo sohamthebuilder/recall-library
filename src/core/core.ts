@@ -7,6 +7,7 @@ import type { AiAdapter } from "./ports/ai";
 import type { Clock } from "./ports/clock";
 import type { ContentFetcher } from "./ports/content-fetcher";
 import type { FileStore } from "./ports/file-store";
+import { addLink } from "./quick-add";
 import {
   addRecallPrompt,
   deleteRecallPrompt,
@@ -48,6 +49,8 @@ export function createCore(deps: CoreDeps) {
   return {
     // Sources
     addSource: (input: Arg<typeof addSource>) => addSource(deps, input),
+    /** Quick add / Share menu: a pasted or shared link goes to the YouTube or blog URL flow. */
+    addLink: (input: Arg<typeof addLink>) => addLink(deps, input),
     library: () => library(deps),
     source: (sourceId: string) => getSource(deps, sourceId),
     retrySource: (sourceId: string) => retrySource(deps, sourceId),
