@@ -22,7 +22,7 @@ export default async function TopicPage({ params }: { params: Promise<{ id: stri
   const linked = new Set(topic.sources.map((s) => s.id));
   const linkable = (await getCore().library()).sources
     .filter((s) => !linked.has(s.id))
-    .map((s) => ({ id: s.id, title: s.title ?? "Untitled Source" }));
+    .map((s) => ({ id: s.id, title: sourceDisplayName(s) }));
 
   return (
     <div className="two-column wide-right">
