@@ -1,5 +1,8 @@
+import Link from "next/link";
+import { isSourceProcessing } from "@/core";
 import { getCore } from "@/server/core";
 import { AddNoteForm } from "./add-note-form";
+import { RefreshWhileProcessing, StatusBadge } from "./source-status";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +13,7 @@ export default async function LibraryPage() {
 
   return (
     <div className="two-column">
+      <RefreshWhileProcessing active={sources.some((s) => isSourceProcessing(s.status))} />
       <section className="panel" aria-labelledby="add-note">
         <h2 id="add-note">Add a Note</h2>
         <AddNoteForm />
@@ -25,8 +29,16 @@ export default async function LibraryPage() {
           <ul className="source-list">
             {sources.map((source) => (
               <li key={source.id} className="panel source-item">
-                {source.title ? <h3>{source.title}</h3> : null}
-                <p>{source.text}</p>
+                <div className="row-between">
+                  <h3>
+                    <Link href={`/sources/${source.id}`}>{source.title ?? "Untitled Note"}</Link>
+                  </h3>
+                  <StatusBadge status={source.status} />
+                </div>
+                {source.text ? <p className="clamp">{source.text}</p> : null}
+                {source.status === "failed" && source.failureReason ? (
+                  <p className="error">{source.failureReason}</p>
+                ) : null}
                 <div className="source-meta">
                   Note · added{" "}
                   <time dateTime={source.addedAt.toISOString()}>{dateFormat.format(source.addedAt)}</time>

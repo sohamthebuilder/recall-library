@@ -15,6 +15,13 @@
       "when": 1795166357423,
       "tag": "0001_sources",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795166738436,
+      "tag": "0002_source_processing_and_topics",
+      "breakpoints": true
     }
   ]
 }

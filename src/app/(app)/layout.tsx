@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireLearner, signOut } from "@/auth";
 
 /** Shell for every signed-in screen. */
@@ -7,7 +8,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <>
       <header className="shell-header">
-        <h1>books-rag</h1>
+        <nav className="shell-nav" aria-label="Main">
+          <h1>
+            <Link href="/">books-rag</Link>
+          </h1>
+          <Link href="/">Library</Link>
+          <Link href="/topics">Topics</Link>
+        </nav>
         <form
           action={async () => {
             "use server";

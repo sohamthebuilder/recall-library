@@ -5,3 +5,11 @@ export class ValidationError extends Error {
     this.name = "ValidationError";
   }
 }
+
+/** The thing the learner asked about does not exist (any more). `message` is safe to show. */
+export class NotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NotFoundError";
+  }
+}

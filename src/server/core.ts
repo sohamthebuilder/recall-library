@@ -1,9 +1,6 @@
 import "server-only";
-import {
-  aiNotYetAvailable,
-  contentFetcherNotYetAvailable,
-  fileStoreNotYetAvailable,
-} from "@/adapters/not-yet-available";
+import { contentFetcherNotYetAvailable, fileStoreNotYetAvailable } from "@/adapters/not-yet-available";
+import { openAiFromEnv } from "@/adapters/openai";
 import { createCore, systemClock, type Core } from "@/core";
 import { getDb } from "@/db/client";
 
@@ -13,7 +10,7 @@ let core: Core | undefined;
 export function getCore(): Core {
   core ??= createCore({
     db: getDb(),
-    ai: aiNotYetAvailable,
+    ai: openAiFromEnv(),
     contentFetcher: contentFetcherNotYetAvailable,
     fileStore: fileStoreNotYetAvailable,
     clock: systemClock,
