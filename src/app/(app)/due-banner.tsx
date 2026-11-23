@@ -18,7 +18,7 @@ export async function DueBanner() {
         )}
       </div>
       {prompts.length > 0 ? (
-        <Link href="/review" className="button-link">
+        <Link href="/review" className="due-start">
           Start Review
         </Link>
       ) : null}

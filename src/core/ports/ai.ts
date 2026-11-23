@@ -42,6 +42,13 @@ export interface AiAdapter {
   generateRecallPrompts(input: GenerateRecallPromptsInput): Promise<RecallPromptDraft[]>;
 
   /**
+   * The Explainer changed: judge the Topic's generated Recall Prompts against its new current
+   * version. `keep` names the prompts (by id) that still fit; every other one is retired.
+   * `add` holds new prompts for content no kept or learner prompt covers. Validated by the core.
+   */
+  reconcileRecallPrompts(input: ReconcileRecallPromptsInput): Promise<RecallPromptReconciliation>;
+
+  /**
    * Grade the learner's answer to a Recall Prompt against its expected key points and the
    * Topic's current Explainer (null if it has none). Returns an FSRS rating, which expected
    * points the answer covered and missed, and the ids of the Explainer key points it is about.
@@ -65,6 +72,23 @@ export interface AnswerGrade {
   pointsCovered: string[];
   pointsMissed: string[];
   relevantKeyPointIds: string[];
+}
+
+export interface ReconcileRecallPromptsInput {
+  topic: { name: string; description: string | null };
+  /** The Explainer's new current version. */
+  explainer: ExplainerContent;
+  /** The generated prompts to judge (active or paused). */
+  prompts: (RecallPromptDraft & { id: string })[];
+  /** The learner's own prompts (edited or written): never changed, shown so new prompts don't repeat them. */
+  learnerPrompts: RecallPromptDraft[];
+}
+
+export interface RecallPromptReconciliation {
+  /** Ids of the prompts that still fit. */
+  keep: string[];
+  /** New prompts for content that is not covered yet. */
+  add: RecallPromptDraft[];
 }
 
 export interface GenerateExplainerStepsInput {

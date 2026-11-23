@@ -25,6 +25,12 @@ export type {
   ExplainerKeyPoint,
   ExplainerStep,
 } from "./explainer-content";
+export type {
+  EditExplainerTextInput,
+  ExplainerVersionRef,
+  KeyPointComparison,
+  OpenedExplainerVersion,
+} from "./explainer-editing";
 export type { ImportTopicsResult } from "./topic-import";
 export type {
   AddRecallPromptInput,
@@ -48,7 +54,14 @@ export type {
 } from "./reviews";
 export { MINUTES_PER_REVIEW } from "./reviews";
 export type { RunJobsOptions, RunJobsResult } from "./jobs";
-export type { AiAdapter, ExplainerPassage, GenerateExplainerInput, TopicCandidate } from "./ports/ai";
+export type {
+  AiAdapter,
+  ExplainerPassage,
+  GenerateExplainerInput,
+  RecallPromptReconciliation,
+  ReconcileRecallPromptsInput,
+  TopicCandidate,
+} from "./ports/ai";
 export { AiError } from "./ports/ai";
 export type { ContentFetcher, ExtractedPdf, FetchedArticle, PdfOutlineEntry } from "./ports/content-fetcher";
 export { ContentFetchError } from "./ports/content-fetcher";

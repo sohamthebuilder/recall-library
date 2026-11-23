@@ -48,6 +48,8 @@ export interface ExplainerVersionSummary {
   number: number;
   cause: ExplainerVersionCause;
   createdAt: Date;
+  /** For a `restore`: the number of the version that was restored. */
+  restoredFrom: number | null;
 }
 
 export interface ExplainerVersion extends ExplainerVersionSummary {
@@ -381,11 +383,13 @@ export async function listExplainerVersions(deps: CoreDeps, topicId: string): Pr
       number: explainerVersions.number,
       cause: explainerVersions.cause,
       createdAt: explainerVersions.createdAt,
+      causeDetail: explainerVersions.causeDetail,
     })
     .from(explainerVersions)
     .innerJoin(explainers, eq(explainers.id, explainerVersions.explainerId))
     .where(eq(explainers.topicId, topicId))
-    .orderBy(desc(explainerVersions.number));
+    .orderBy(desc(explainerVersions.number))
+    .then((rows) => rows.map(({ causeDetail, ...row }) => ({ ...row, restoredFrom: restoredFrom(causeDetail) })));
 }
 
 /**
@@ -442,12 +446,18 @@ async function assertTopicExists(deps: CoreDeps, topicId: string) {
   if (!topic) throw new NotFoundError("That Topic no longer exists.");
 }
 
-function toVersion(row: typeof explainerVersions.$inferSelect): ExplainerVersion {
+export function toVersion(row: typeof explainerVersions.$inferSelect): ExplainerVersion {
   return {
     id: row.id,
     number: row.number,
     cause: row.cause,
     createdAt: row.createdAt,
+    restoredFrom: restoredFrom(row.causeDetail),
     content: parseStoredContent(row.content),
   };
+}
+
+function restoredFrom(causeDetail: unknown): number | null {
+  const n = (causeDetail as { restoredFrom?: unknown } | null)?.restoredFrom;
+  return typeof n === "number" ? n : null;
 }

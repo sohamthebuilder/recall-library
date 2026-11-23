@@ -59,6 +59,21 @@ async function topicWithExplainer(t: TestCore, topicName = "Kafka consumer group
   return { topic, prompts, explain: prompts.find((p) => p.kind === "explain")! };
 }
 
+describe("the due queue and reconciliation", () => {
+  it("leaves out prompts retired when the Explainer changed", async () => {
+    const t = await createTestCore({ now: new Date("2026-03-01T10:00:00Z") });
+    const { topic, prompts, explain } = await topicWithExplainer(t);
+    t.ai.scriptRecallPromptReconciliation("Kafka consumer groups", { keep: prompts.filter((p) => p.id !== explain.id).map((p) => p.id), add: [] });
+
+    await t.core.editExplainerText({ topicId: topic.id, title: "Consumer groups, in my words" });
+    await t.core.runJobs();
+
+    const due = (await t.core.dueRecallPrompts()).prompts.map((p) => p.id);
+    expect(due).toHaveLength(3);
+    expect(due).not.toContain(explain.id);
+  });
+});
+
 describe("a scheduled Review", () => {
   it("grades a typed answer against the expected points and the Explainer, and shows the relevant part of it", async () => {
     const t = await createTestCore({ now: new Date("2026-03-01T10:00:00Z") });
