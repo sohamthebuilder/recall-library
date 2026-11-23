@@ -7,7 +7,7 @@ import { NotFoundError, ValidationError } from "./errors";
 import { type ExplainerKeyPoint, parseStoredContent } from "./explainer-content";
 import { AiError, type ReviewRating } from "./ports/ai";
 import { type RecallPrompt, toRecallPrompt } from "./recall-prompts";
-import { memoryStateOf, parseMemoryState, schedule, serializeMemoryState } from "./scheduling";
+import { type MemoryState, memoryStateOf, parseMemoryState, schedule, serializeMemoryState } from "./scheduling";
 
 export type { ReviewRating } from "./ports/ai";
 export type ReviewKind = "scheduled" | "practice";
@@ -76,7 +76,7 @@ async function duePrompts(db: DbOrTx, cutoff: Date): Promise<DuePrompt[]> {
  * Round-robin across Topics, so a run of related questions is broken up: Topics take turns
  * in order of their most overdue prompt, and each Topic's prompts stay most overdue first.
  */
-function interleave(prompts: DuePrompt[]): DuePrompt[] {
+export function interleave(prompts: DuePrompt[]): DuePrompt[] {
   const byTopic = new Map<string, DuePrompt[]>();
   for (const p of prompts) byTopic.set(p.topicId, [...(byTopic.get(p.topicId) ?? []), p]);
   const queues = [...byTopic.values()];
@@ -92,6 +92,8 @@ function interleave(prompts: DuePrompt[]): DuePrompt[] {
 
 export interface ReviewSession {
   id: string;
+  /** Scheduled (the due queue) or Practice (prompts the learner chose, due or not). */
+  kind: ReviewKind;
   startedAt: Date;
   /** Prompts reviewed in this session. */
   done: number;
@@ -120,12 +122,12 @@ export async function startReview(deps: CoreDeps, options: DueOptions = {}): Pro
   return reviewSession(deps);
 }
 
-/** The open Review session, or null. A session with nothing left to review is finished. */
-export async function reviewSession(deps: CoreDeps): Promise<ReviewSession | null> {
+/** The open Review session of this kind, or null. A session with nothing left to review is finished. */
+export async function reviewSession(deps: CoreDeps, kind: ReviewKind = "scheduled"): Promise<ReviewSession | null> {
   const [session] = await deps.db
     .select()
     .from(reviewSessions)
-    .where(and(eq(reviewSessions.kind, "scheduled"), isNull(reviewSessions.finishedAt)));
+    .where(and(eq(reviewSessions.kind, kind), isNull(reviewSessions.finishedAt)));
   if (!session) return null;
 
   const done = await selectReviews(deps.db)
@@ -151,6 +153,7 @@ export async function reviewSession(deps: CoreDeps): Promise<ReviewSession | nul
   const last = done.at(-1);
   return {
     id: session.id,
+    kind: session.kind,
     startedAt: session.startedAt,
     done: reviewed.size,
     remaining: remaining.length,
@@ -166,7 +169,7 @@ export interface SubmitReviewInput {
   promptId: string;
   /** Typed (or, #7, transcribed and corrected) answer. */
   answer: string;
-  /** The Review session it was answered in, if any. */
+  /** The Review session it was answered in, if any. An answer in a Practice session is a Practice Review. */
   sessionId?: string;
 }
 
@@ -191,6 +194,7 @@ export async function submitReview(deps: CoreDeps, input: SubmitReviewInput): Pr
   const answer = input.answer.trim();
   if (!answer) throw new ValidationError("Write your answer first.");
   const prompt = await reviewablePrompt(deps.db, input.promptId);
+  let kind: ReviewKind = "scheduled";
   if (input.sessionId !== undefined) {
     const [session] = await deps.db
       .select()
@@ -198,6 +202,7 @@ export async function submitReview(deps: CoreDeps, input: SubmitReviewInput): Pr
       .where(and(sql`${reviewSessions.id}::text = ${input.sessionId}`, isNull(reviewSessions.finishedAt)));
     if (!session) throw new NotFoundError("That Review session has finished.");
     if (!session.promptIds.includes(prompt.id)) throw new ValidationError("That Recall Prompt is not in this Review session.");
+    kind = session.kind;
   }
 
   const [context] = await deps.db
@@ -224,13 +229,13 @@ export async function submitReview(deps: CoreDeps, input: SubmitReviewInput): Pr
   const now = deps.clock.now();
   const before = memoryStateOf(prompt);
   const id = await deps.db.transaction(async (tx) => {
-    await tx.update(recallPrompts).set(schedule(before, grade.rating, now)).where(eq(recallPrompts.id, prompt.id));
+    await tx.update(recallPrompts).set(reschedule(kind, before, grade.rating, now)).where(eq(recallPrompts.id, prompt.id));
     const [row] = await tx
       .insert(reviews)
       .values({
         promptId: prompt.id,
         sessionId: input.sessionId ?? null,
-        kind: "scheduled",
+        kind,
         question: prompt.question,
         answer,
         aiRating: grade.rating,
@@ -272,7 +277,7 @@ export async function overruleGrade(deps: CoreDeps, input: OverruleGradeInput): 
       .limit(1);
     if (latest!.id !== review.id) throw new ValidationError("Only the latest Review of a prompt can be overruled.");
 
-    const after = schedule(parseMemoryState(review.cardBefore), rating.data, review.reviewedAt);
+    const after = reschedule(review.kind, parseMemoryState(review.cardBefore), rating.data, review.reviewedAt);
     await tx.update(recallPrompts).set(after).where(eq(recallPrompts.id, review.promptId));
     await tx
       .update(reviews)
@@ -280,6 +285,16 @@ export async function overruleGrade(deps: CoreDeps, input: OverruleGradeInput): 
       .where(eq(reviews.id, review.id));
   });
   return getReview(deps.db, input.reviewId);
+}
+
+/**
+ * The prompt's memory state after a Review. A Practice Review only counts when it went badly:
+ * Again reschedules the prompt (bringing it back sooner); Hard, Good or Easy leave it as it was,
+ * so practising never pushes a prompt further out.
+ */
+function reschedule(kind: ReviewKind, before: MemoryState, rating: ReviewRating, at: Date): MemoryState {
+  if (kind === "practice" && rating !== "again") return before;
+  return schedule(before, rating, at);
 }
 
 /** A prompt that can be reviewed now: not deleted, and active. */

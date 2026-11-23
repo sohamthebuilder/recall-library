@@ -1113,6 +1113,17 @@ a.due-start {
   }
 }
 
+/* Practice (#8) */
+.practice-start {
+  margin: 0 0 16px;
+}
+.topic-header .practice-start {
+  margin: 0;
+}
+.review-history .badge {
+  margin-left: 8px;
+}
+
 /* Changing the Explainer by instruction (#19) */
 .instruction {
   margin-top: 12px;

@@ -36,8 +36,8 @@ export function ReviewCard({ session }: { session: ReviewSession }) {
   const isLast = session.remaining === 1;
 
   const next = useCallback(() => {
-    startMoving(() => (isLast ? router.push("/") : router.refresh()));
-  }, [isLast, router]);
+    startMoving(() => (isLast ? router.push(session.kind === "practice" ? "/topics" : "/") : router.refresh()));
+  }, [isLast, router, session.kind]);
 
   useEffect(() => {
     if (!review) return;
@@ -61,6 +61,7 @@ export function ReviewCard({ session }: { session: ReviewSession }) {
       <section className="panel review-card" aria-labelledby="review-question">
         <div className="row-between review-progress">
           <span className="muted">
+            {session.kind === "practice" ? "Practice · " : null}
             {session.done + 1} of {session.done + session.remaining} · {prompt.topicName}
           </span>
           <span className="badge">{recallPromptKindLabel(prompt.kind)}</span>

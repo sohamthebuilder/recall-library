@@ -43,6 +43,7 @@ import {
   submitReview,
   topicReviews,
 } from "./reviews";
+import { type PracticeScope, practiceSession, startPractice } from "./practice";
 import { addSource, deleteSource, getSource, library, retrySource } from "./sources";
 import {
   acceptSuggestedEdit,
@@ -162,6 +163,12 @@ export function createCore(deps: CoreDeps) {
     overruleGrade: (input: Arg<typeof overruleGrade>) => overruleGrade(deps, input),
     /** A Topic's Review history, newest first (deleted prompts' Reviews included). */
     topicReviews: (topicId: string) => topicReviews(deps, topicId),
+
+    // Practice (#8)
+    /** Start Practice over a Topic's or a Tag's active prompts, due or not (null if there are none). */
+    startPractice: (scope: PracticeScope) => startPractice(deps, scope),
+    /** The open Practice session, or null. */
+    practiceSession: () => practiceSession(deps),
 
     /** Drain the background job queue. See jobs.ts. */
     runJobs: (options?: RunJobsOptions) => runJobs(deps, jobHandlers, options),

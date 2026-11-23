@@ -51,6 +51,7 @@ export async function editPromptInReview(promptId: string, _prev: FormState, for
     throw e;
   }
   revalidatePath("/review");
+  revalidatePath("/practice");
   return { error: null, ok: true };
 }
 
@@ -58,12 +59,14 @@ export async function pausePromptInReview(promptId: string): Promise<void> {
   await requireLearner();
   await ignoreGone(() => getCore().suspendRecallPrompt(promptId));
   revalidatePath("/review");
+  revalidatePath("/practice");
 }
 
 export async function deletePromptInReview(promptId: string): Promise<void> {
   await requireLearner();
   await ignoreGone(() => getCore().deleteRecallPrompt(promptId));
   revalidatePath("/review");
+  revalidatePath("/practice");
 }
 
 async function ignoreGone(op: () => Promise<unknown>): Promise<void> {

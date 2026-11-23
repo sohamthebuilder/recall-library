@@ -21,6 +21,7 @@ export async function ReviewHistory({ topicId }: { topicId: string }) {
               <div className="row-between">
                 <strong>
                   {RATING_LABEL[r.rating]}
+                  {r.kind === "practice" ? <span className="badge">Practice</span> : null}
                   {r.overruled ? <span className="muted"> (overruled {RATING_LABEL[r.aiRating]})</span> : null}
                 </strong>
                 <time className="source-meta" dateTime={r.reviewedAt.toISOString()}>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCore } from "@/server/core";
+import { PracticeButton } from "../practice/practice-button";
 import { ImportTopicsForm } from "./import-topics-form";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +51,12 @@ export default async function TopicsPage({ searchParams }: { searchParams: Searc
         </div>
       </form>
 
+      {tagIds.length === 1 && search === "" && topics.length > 0 ? (
+        <PracticeButton
+          scope={{ tagId: tagIds[0]! }}
+          label={`Practise ${allTags.find((t) => t.id === tagIds[0])?.name ?? "this Tag"}`}
+        />
+      ) : null}
       {topics.length === 0 ? (
         <p className="muted">
           {filtering

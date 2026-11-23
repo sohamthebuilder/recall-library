@@ -55,6 +55,7 @@ export type {
   SubmitReviewInput,
 } from "./reviews";
 export { MINUTES_PER_REVIEW } from "./reviews";
+export type { PracticeScope } from "./practice";
 export type { RunJobsOptions, RunJobsResult } from "./jobs";
 export type {
   AiAdapter,
