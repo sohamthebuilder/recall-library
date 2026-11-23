@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Explainer } from "@/core";
 import { retryExplainer } from "../../actions";
 import { RefreshWhileProcessing } from "../../source-status";
@@ -60,7 +61,12 @@ export function ExplainerPanel({ topicId, explainer }: { topicId: string; explai
         )}
         <KeyPoints keyPoints={content.keyPoints} passages={explainer.passages} />
       </div>
-      <p className="source-meta">Version {explainer.current.number}</p>
+      <nav className="explainer-actions source-meta" aria-label="Explainer">
+        <span>Version {explainer.current.number}</span>
+        <Link href={`/topics/${topicId}/explainer/edit`}>Edit text</Link>
+        <Link href={`/topics/${topicId}/explainer/compare`}>Compare with Sources</Link>
+        <Link href={`/topics/${topicId}/explainer/versions`}>Versions</Link>
+      </nav>
     </article>
   );
 }

@@ -8,6 +8,7 @@ import { parseStoredContent } from "./explainer-content";
 import { enqueueJob } from "./jobs";
 import type { RecallPromptDraft, RecallPromptKind } from "./ports/ai";
 import { RECALL_PROMPT_KINDS } from "./recall-prompt-kinds";
+import { reconcileRecallPrompts } from "./recall-prompt-reconciliation";
 
 /**
  * Recall Prompts: questions about a Topic, generated from its current Explainer or written by
@@ -58,8 +59,8 @@ export async function updateRecallPrompts(deps: CoreDeps, { topicId }: { topicId
   if (!row) return;
 
   if ((await generatedCount(deps.db, topicId)) > 0) {
-    // #17: reconcile the Topic's generated prompts with the new version here.
-    return;
+    const content = parseStoredContent(row.content);
+    return reconcileRecallPrompts(deps, { topic: row.topic, versionId: row.versionId, content });
   }
 
   const drafts = await deps.ai.generateRecallPrompts({
@@ -91,14 +92,16 @@ const draftSchema = z.object({
   expectedPoints: z.array(z.string().trim()).transform((ps) => ps.filter((p) => p.length > 0)).pipe(z.array(z.string()).min(1)),
 });
 
+/** One AI-drafted prompt, trimmed, or null if it is not well-formed. */
+export function usableDraft(draft: unknown): RecallPromptDraft | null {
+  const parsed = draftSchema.safeParse(draft);
+  return parsed.success ? parsed.data : null;
+}
+
 /** The well-formed drafts, or null unless they cover all four kinds. */
 function usableDrafts(drafts: unknown): RecallPromptDraft[] | null {
   if (!Array.isArray(drafts)) return null;
-  const usable: RecallPromptDraft[] = [];
-  for (const d of drafts) {
-    const parsed = draftSchema.safeParse(d);
-    if (parsed.success) usable.push(parsed.data);
-  }
+  const usable = drafts.map(usableDraft).filter((d): d is RecallPromptDraft => d !== null);
   return RECALL_PROMPT_KINDS.every((k) => usable.some((d) => d.kind === k)) ? usable : null;
 }
 

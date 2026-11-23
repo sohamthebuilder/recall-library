@@ -210,6 +210,56 @@ export async function switchExplainerForm(topicId: string, _prev: FormState, for
   return state;
 }
 
+/**
+ * Thin adapter from the Explainer text form to `editExplainerText`. Key points arrive as aligned
+ * `keyPointId` / `keyPointText` lists (an empty id is a new point); labels as `node:<id>`,
+ * `edge:<id>` and `group:<id>` fields.
+ */
+export async function editExplainerText(
+  topicId: string,
+  baseVersionId: string,
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  await requireLearner();
+  const ids = formData.getAll("keyPointId").map(String);
+  const texts = formData.getAll("keyPointText").map(String);
+  const labels = (prefix: string) => {
+    const out: Record<string, string> = {};
+    for (const [name, value] of formData.entries()) {
+      if (name.startsWith(prefix)) out[name.slice(prefix.length)] = String(value);
+    }
+    return out;
+  };
+  const state = await attempt(() =>
+    getCore().editExplainerText({
+      topicId,
+      baseVersionId,
+      title: String(formData.get("title") ?? ""),
+      keyPoints: texts.map((text, i) => ({ id: ids[i] || null, text })),
+      analogy: String(formData.get("analogy") ?? ""),
+      nodeLabels: labels("node:"),
+      edgeLabels: labels("edge:"),
+      groupLabels: labels("group:"),
+    }),
+  );
+  if (state.ok) {
+    runJobsAfterResponse();
+    revalidatePath(`/topics/${topicId}`);
+    redirect(`/topics/${topicId}`);
+  }
+  return state;
+}
+
+/** Make an earlier Explainer version current again (the core saves it as a new version). */
+export async function restoreExplainerVersion(topicId: string, versionId: string): Promise<void> {
+  await requireLearner();
+  await attempt(() => getCore().restoreExplainerVersion({ topicId, versionId }));
+  runJobsAfterResponse();
+  revalidatePath(`/topics/${topicId}`);
+  redirect(`/topics/${topicId}`);
+}
+
 export async function deleteTopic(topicId: string): Promise<void> {
   await requireLearner();
   try {
