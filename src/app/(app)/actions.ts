@@ -251,6 +251,33 @@ export async function editExplainerText(
   return state;
 }
 
+export type InstructionState = FormState & { previousVersionId: string | null; newVersionId: string | null };
+
+/**
+ * Thin adapter from the instruction box to `editExplainerByInstruction`. On success it returns the
+ * version the learner was looking at, so the form can offer to restore it.
+ */
+export async function editExplainerByInstruction(
+  topicId: string,
+  baseVersionId: string,
+  _prev: InstructionState,
+  formData: FormData,
+): Promise<InstructionState> {
+  await requireLearner();
+  let newVersionId: string | null = null;
+  const state = await attempt(async () => {
+    const explainer = await getCore().editExplainerByInstruction({
+      topicId,
+      baseVersionId,
+      instruction: String(formData.get("instruction") ?? ""),
+    });
+    newVersionId = explainer.current?.id ?? null;
+  });
+  if (state.ok) runJobsAfterResponse();
+  revalidatePath(`/topics/${topicId}`);
+  return { ...state, previousVersionId: state.ok ? baseVersionId : null, newVersionId };
+}
+
 /** Make an earlier Explainer version current again (the core saves it as a new version). */
 export async function restoreExplainerVersion(topicId: string, versionId: string): Promise<void> {
   await requireLearner();
