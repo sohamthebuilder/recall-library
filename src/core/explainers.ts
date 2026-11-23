@@ -1,4 +1,4 @@
-import { and, asc, cosineDistance, desc, eq, inArray, isNull, max } from "drizzle-orm";
+import { and, asc, cosineDistance, count, desc, eq, inArray, isNull, max, sql } from "drizzle-orm";
 import { explainers, explainerVersions, sourceChunks, sources, topicSources, topics } from "@/db/schema";
 import type { DbOrTx } from "@/db/types";
 import type { ChunkAnchor } from "./chunking";
@@ -14,6 +14,7 @@ import {
 } from "./explainer-content";
 import { enqueueJob } from "./jobs";
 import { AiError, type ExplainerPassage } from "./ports/ai";
+import { sourceRow } from "./sources";
 
 /**
  * Explainers (ADR 0001). A Topic gets exactly one Explainer, once it has an approved Source.
@@ -382,6 +383,21 @@ export async function listExplainerVersions(deps: CoreDeps, topicId: string): Pr
     .innerJoin(explainers, eq(explainers.id, explainerVersions.explainerId))
     .where(eq(explainers.topicId, topicId))
     .orderBy(desc(explainerVersions.number));
+}
+
+/**
+ * How many Explainers cite this Source in the version the learner studies. Shown when the
+ * learner is about to delete the Source.
+ */
+export async function countExplainersCitingSource(deps: CoreDeps, sourceId: string): Promise<number> {
+  await sourceRow(deps, sourceId);
+  const citesSource = { keyPoints: [{ citations: [{ sourceId }] }] };
+  const [row] = await deps.db
+    .select({ n: count() })
+    .from(explainers)
+    .innerJoin(explainerVersions, eq(explainerVersions.id, explainers.currentVersionId))
+    .where(sql`${explainerVersions.content} @> ${JSON.stringify(citesSource)}::jsonb`);
+  return row!.n;
 }
 
 /** Resolve every citation in the content to its passage, or "Source removed". */

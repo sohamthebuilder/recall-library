@@ -104,6 +104,19 @@ export async function retrySource(sourceId: string): Promise<void> {
   revalidatePath("/");
 }
 
+/** Delete a Source (the learner has confirmed), then go back to the Library. */
+export async function deleteSource(sourceId: string): Promise<void> {
+  await requireLearner();
+  try {
+    await getCore().deleteSource(sourceId);
+  } catch (e) {
+    if (!(e instanceof NotFoundError)) throw e;
+  }
+  revalidatePath("/");
+  revalidatePath("/topics", "layout");
+  redirect("/");
+}
+
 /** Approve (optionally renamed), merge into an existing Topic, or reject a proposed Topic. */
 export async function decideTopicProposal(
   sourceId: string,
