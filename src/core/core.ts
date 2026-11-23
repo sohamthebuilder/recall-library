@@ -42,6 +42,7 @@ import {
   submitReview,
   topicReviews,
 } from "./reviews";
+import { transcribeAnswer } from "./spoken-answers";
 import { addSource, deleteSource, getSource, library, retrySource } from "./sources";
 import { type FindTopicsInput, findTopics, listTags, tagTopic, untagTopic } from "./tags";
 import { importTopics, linkSourceByHand } from "./topic-import";
@@ -137,6 +138,8 @@ export function createCore(deps: CoreDeps) {
     startReview: (options?: DueOptions) => startReview(deps, options),
     /** The open Review session, or null. */
     reviewSession: () => reviewSession(deps),
+    /** Spoken answers (#7): audio to text, for the learner to correct before `submitReview`. Grades nothing. */
+    transcribeAnswer: (input: Arg<typeof transcribeAnswer>) => transcribeAnswer(deps, input),
     /** Grade a typed answer and reschedule the prompt with the rating. */
     submitReview: (input: Arg<typeof submitReview>) => submitReview(deps, input),
     /** Replace a Review's rating; the final rating reschedules the prompt. */

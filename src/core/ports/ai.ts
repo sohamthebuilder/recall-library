@@ -55,6 +55,17 @@ export interface AiAdapter {
    * The core validates the result.
    */
   gradeAnswer(input: GradeAnswerInput): Promise<AnswerGrade>;
+
+  /**
+   * Speech to text: the learner's spoken answer to a Recall Prompt, as plain text. `question`
+   * is the prompt being answered, a hint for the words to expect. May return "" for silence.
+   */
+  transcribeAnswer(input: TranscribeAnswerInput): Promise<string>;
+}
+
+export interface TranscribeAnswerInput {
+  audio: { bytes: Uint8Array; mimeType: string };
+  question: string;
 }
 
 export type ReviewRating = "again" | "hard" | "good" | "easy";

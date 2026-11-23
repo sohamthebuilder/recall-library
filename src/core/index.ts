@@ -53,6 +53,8 @@ export type {
   SubmitReviewInput,
 } from "./reviews";
 export { MINUTES_PER_REVIEW } from "./reviews";
+export { MAX_RECORDING_BYTES } from "./spoken-answers";
+export type { Transcript, TranscribeAnswerInput } from "./spoken-answers";
 export type { RunJobsOptions, RunJobsResult } from "./jobs";
 export type {
   AiAdapter,

@@ -5,6 +5,7 @@ import { useActionState, useCallback, useEffect, useRef, useState, useTransition
 import type { Review, ReviewRating, ReviewSession } from "@/core";
 import { recallPromptKindLabel } from "@/core/recall-prompt-kinds";
 import { RecallPromptForm } from "../topics/[id]/recall-prompt-form";
+import { SpokenAnswer } from "./spoken-answer";
 import {
   deletePromptInReview,
   editPromptInReview,
@@ -19,7 +20,7 @@ const RATING_LABEL: Record<ReviewRating, string> = { again: "Again", hard: "Hard
 const initial: ReviewState = { error: null, review: null };
 
 /**
- * One prompt of a Review session: type an answer, see the grade (covered, missed, the relevant
+ * One prompt of a Review session: type an answer (or speak it, then correct the transcript), see the grade (covered, missed, the relevant
  * part of the Explainer), overrule it, move on. Keyboard: Ctrl/⌘+Enter submits; once graded,
  * 1–4 overrule (Again/Hard/Good/Easy) and Enter goes to the next prompt.
  */
@@ -90,6 +91,12 @@ export function ReviewCard({ session }: { session: ReviewSession }) {
               }
             }}
           />
+          {review ? null : (
+            <SpokenAnswer
+              promptId={prompt.id}
+              onTranscript={(text) => setAnswer((typed) => (typed.trim() ? `${typed.trimEnd()} ${text}` : text))}
+            />
+          )}
           {review ? null : (
             <div className="button-row">
               <button type="submit" className="primary" disabled={submitting}>
