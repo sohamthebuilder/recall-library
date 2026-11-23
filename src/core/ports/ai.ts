@@ -34,11 +34,30 @@ export interface AiAdapter {
    * Explainer that has no steps is switched to the animation form. Validated by the core.
    */
   generateExplainerSteps(input: GenerateExplainerStepsInput): Promise<ExplainerStep[]>;
+
+  /**
+   * Recall Prompts for a Topic, from its current Explainer: a mix of all four kinds, each with
+   * the key points a good answer covers (taken from the Explainer). The core validates them.
+   */
+  generateRecallPrompts(input: GenerateRecallPromptsInput): Promise<RecallPromptDraft[]>;
 }
 
 export interface GenerateExplainerStepsInput {
   topic: { name: string; description: string | null };
   content: ExplainerContent;
+}
+
+export type RecallPromptKind = "explain" | "compare" | "apply" | "why";
+
+export interface GenerateRecallPromptsInput {
+  topic: { name: string; description: string | null };
+  explainer: ExplainerContent;
+}
+
+export interface RecallPromptDraft {
+  kind: RecallPromptKind;
+  question: string;
+  expectedPoints: string[];
 }
 
 export interface GenerateExplainerInput {

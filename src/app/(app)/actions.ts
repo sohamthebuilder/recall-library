@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireLearner } from "@/auth";
-import { NotFoundError, type UploadedFile, ValidationError } from "@/core";
+import { NotFoundError, type RecallPromptKind, type UploadedFile, ValidationError } from "@/core";
 import { getCore } from "@/server/core";
 import { runJobsAfterResponse } from "@/server/jobs";
 
@@ -219,4 +219,58 @@ export async function linkSourceToTopic(topicId: string, _prev: FormState, formD
   revalidatePath(`/topics/${topicId}`);
   revalidatePath("/topics");
   return state;
+}
+
+// Recall Prompts. Wording forms send `kind`, `question` and `expectedPoints` (one per line).
+
+function recallPromptWording(formData: FormData) {
+  return {
+    kind: String(formData.get("kind") ?? "") as RecallPromptKind,
+    question: String(formData.get("question") ?? ""),
+    expectedPoints: String(formData.get("expectedPoints") ?? "").split(/\r?\n/),
+  };
+}
+
+export async function addRecallPrompt(topicId: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  await requireLearner();
+  const state = await attempt(() => getCore().addRecallPrompt({ topicId, ...recallPromptWording(formData) }));
+  revalidatePath(`/topics/${topicId}`);
+  return state;
+}
+
+export async function editRecallPrompt(
+  topicId: string,
+  promptId: string,
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  await requireLearner();
+  const state = await attempt(() => getCore().editRecallPrompt({ promptId, ...recallPromptWording(formData) }));
+  revalidatePath(`/topics/${topicId}`);
+  return state;
+}
+
+export async function suspendRecallPrompt(topicId: string, promptId: string): Promise<void> {
+  await requireLearner();
+  await attempt(() => getCore().suspendRecallPrompt(promptId));
+  revalidatePath(`/topics/${topicId}`);
+}
+
+export async function resumeRecallPrompt(topicId: string, promptId: string): Promise<void> {
+  await requireLearner();
+  await attempt(() => getCore().resumeRecallPrompt(promptId));
+  revalidatePath(`/topics/${topicId}`);
+}
+
+export async function deleteRecallPrompt(topicId: string, promptId: string): Promise<void> {
+  await requireLearner();
+  await attempt(() => getCore().deleteRecallPrompt(promptId));
+  revalidatePath(`/topics/${topicId}`);
+}
+
+export async function generateRecallPrompts(topicId: string): Promise<void> {
+  await requireLearner();
+  const state = await attempt(() => getCore().generateRecallPrompts(topicId));
+  if (state.ok) runJobsAfterResponse();
+  revalidatePath(`/topics/${topicId}`);
 }

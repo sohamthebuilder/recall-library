@@ -5,7 +5,9 @@ import {
   type ConfirmTopicMatchInput,
   type GenerateExplainerInput,
   type GenerateExplainerStepsInput,
+  type GenerateRecallPromptsInput,
   type ProposeTopicsInput,
+  type RecallPromptDraft,
   type TopicCandidate,
 } from "@/core/ports/ai";
 import { EMBEDDING_DIMENSIONS } from "@/db/schema";
@@ -25,6 +27,8 @@ type Scripted<T> = T | (() => T | Promise<T>);
  *   passage (up to 3) citing it (scriptExplainer / scriptExplainerFailure, keyed by Topic name)
  * - generateExplainerSteps: one step per diagram node (scriptExplainerSteps /
  *   scriptExplainerStepsFailure, keyed by Topic name)
+ * - generateRecallPrompts: one prompt of each kind, expecting the Explainer's first key point
+ *   (scriptRecallPrompts / scriptRecallPromptsFailure, keyed by Topic name)
  */
 export class FakeAi implements AiAdapter {
   private readonly scriptedEmbeddings = new Map<string, number[]>();
@@ -36,6 +40,11 @@ export class FakeAi implements AiAdapter {
 
   private readonly scriptedSteps = new Map<string, StepsScript>();
   private readonly stepsFailures = new Map<string, string[]>();
+  private readonly scriptedRecallPrompts = new Map<string, RecallPromptsScript>();
+  private readonly recallPromptFailures = new Map<string, string[]>();
+
+  /** Every generateRecallPrompts call, in order. */
+  readonly recallPromptRequests: GenerateRecallPromptsInput[] = [];
 
   /** Every generateExplainer call, in order. */
   readonly explainerRequests: GenerateExplainerInput[] = [];
@@ -124,6 +133,27 @@ export class FakeAi implements AiAdapter {
     return (typeof scripted === "function" ? await scripted(input) : scripted) as ExplainerStep[];
   }
 
+  /** Make `generateRecallPrompts` for the Topic with this name return these (or what the function builds). Need not be valid. */
+  scriptRecallPrompts(topicName: string, prompts: RecallPromptsScript): this {
+    this.scriptedRecallPrompts.set(topicName, prompts);
+    return this;
+  }
+
+  /** Make the next `generateRecallPrompts` call for this Topic fail with this reason (then it behaves as scripted). */
+  scriptRecallPromptsFailure(topicName: string, reason: string): this {
+    this.recallPromptFailures.set(topicName, [...(this.recallPromptFailures.get(topicName) ?? []), reason]);
+    return this;
+  }
+
+  async generateRecallPrompts(input: GenerateRecallPromptsInput): Promise<RecallPromptDraft[]> {
+    this.recallPromptRequests.push(input);
+    const failure = this.recallPromptFailures.get(input.topic.name)?.shift();
+    if (failure !== undefined) throw new AiError(failure);
+    const scripted = this.scriptedRecallPrompts.get(input.topic.name);
+    if (scripted === undefined) return defaultRecallPrompts(input);
+    return (typeof scripted === "function" ? await scripted(input) : scripted) as RecallPromptDraft[];
+  }
+
   async embed(texts: string[]): Promise<number[][]> {
     return texts.map((t) => this.scriptedEmbeddings.get(t) ?? defaultEmbedding(t));
   }
@@ -179,6 +209,22 @@ function defaultExplainer({ topic, passages }: GenerateExplainerInput): Explaine
     },
     steps: [],
   };
+}
+
+/** Drafts, or a builder from the request. Typed loosely so tests can script invalid ones. */
+type LooseRecallPrompts = (RecallPromptDraft | Record<string, unknown>)[];
+export type RecallPromptsScript =
+  | LooseRecallPrompts
+  | ((input: GenerateRecallPromptsInput) => LooseRecallPrompts | Promise<LooseRecallPrompts>);
+
+function defaultRecallPrompts({ topic, explainer }: GenerateRecallPromptsInput): RecallPromptDraft[] {
+  const expectedPoints = [explainer.keyPoints[0]?.text ?? topic.name];
+  return [
+    { kind: "explain", question: `Explain ${topic.name}.`, expectedPoints },
+    { kind: "compare", question: `Compare ${topic.name} with an alternative.`, expectedPoints },
+    { kind: "apply", question: `When would you use ${topic.name}?`, expectedPoints },
+    { kind: "why", question: `Why does ${topic.name} work this way?`, expectedPoints },
+  ];
 }
 
 function pad(vector: number[]): number[] {

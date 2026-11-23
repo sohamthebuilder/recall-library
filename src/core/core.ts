@@ -15,6 +15,15 @@ import type { Clock } from "./ports/clock";
 import type { ContentFetcher } from "./ports/content-fetcher";
 import type { FileStore } from "./ports/file-store";
 import { addLink } from "./quick-add";
+import {
+  addRecallPrompt,
+  deleteRecallPrompt,
+  editRecallPrompt,
+  generateRecallPrompts,
+  listRecallPrompts,
+  resumeRecallPrompt,
+  suspendRecallPrompt,
+} from "./recall-prompts";
 import { addSource, deleteSource, getSource, library, retrySource } from "./sources";
 import { type FindTopicsInput, findTopics, listTags, tagTopic, untagTopic } from "./tags";
 import { importTopics, linkSourceByHand } from "./topic-import";
@@ -82,6 +91,15 @@ export function createCore(deps: CoreDeps) {
     explainerVersions: (topicId: string) => listExplainerVersions(deps, topicId),
     retryExplainer: (topicId: string) => retryExplainer(deps, topicId),
     switchExplainerForm: (input: SwitchExplainerFormInput) => switchExplainerForm(deps, input),
+
+    // Recall Prompts
+    recallPrompts: (topicId: string) => listRecallPrompts(deps, topicId),
+    generateRecallPrompts: (topicId: string) => generateRecallPrompts(deps, topicId),
+    editRecallPrompt: (input: Arg<typeof editRecallPrompt>) => editRecallPrompt(deps, input),
+    addRecallPrompt: (input: Arg<typeof addRecallPrompt>) => addRecallPrompt(deps, input),
+    suspendRecallPrompt: (promptId: string) => suspendRecallPrompt(deps, promptId),
+    resumeRecallPrompt: (promptId: string) => resumeRecallPrompt(deps, promptId),
+    deleteRecallPrompt: (promptId: string) => deleteRecallPrompt(deps, promptId),
 
     /** Drain the background job queue. See jobs.ts. */
     runJobs: (options?: RunJobsOptions) => runJobs(deps, jobHandlers, options),
