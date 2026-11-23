@@ -49,6 +49,21 @@ export interface AiAdapter {
   reconcileRecallPrompts(input: ReconcileRecallPromptsInput): Promise<RecallPromptReconciliation>;
 
   /**
+   * Grade the learner's answer to a Recall Prompt against its expected key points and the
+   * Topic's current Explainer (null if it has none). Returns an FSRS rating, which expected
+   * points the answer covered and missed, and the ids of the Explainer key points it is about.
+   * The core validates the result.
+   */
+  gradeAnswer(input: GradeAnswerInput): Promise<AnswerGrade>;
+
+  /**
+   * Reshape an Explainer as the learner instructs ("use a restaurant analogy", "show the
+   * partitions"). Returns the whole new Explainer. Keep key point ids for points that are the
+   * same; citations may only name the given passages' chunkIds. Validated by the core.
+   */
+  applyExplainerInstruction(input: ApplyExplainerInstructionInput): Promise<ExplainerDraft>;
+
+  /**
    * A new Source was linked to a Topic that already has an Explainer (ADR 0001: it is never
    * regenerated). Propose Suggested Edits: changes to the Explainer's key points that the new
    * Source's passages add or contradict. Each either adds a key point (`keyPointId` null) or
@@ -77,6 +92,32 @@ export interface SuggestedEditDraft {
   text: string;
   /** The passages (of those given) the proposed text comes from. */
   citations: { chunkId: string }[];
+}
+
+export interface ApplyExplainerInstructionInput {
+  topic: { name: string; description: string | null };
+  instruction: string;
+  /** The Explainer's current version. */
+  explainer: ExplainerContent;
+  /** The Source passages the current version cites (those whose Source still exists). */
+  passages: ExplainerPassage[];
+}
+
+export type ReviewRating = "again" | "hard" | "good" | "easy";
+
+export interface GradeAnswerInput {
+  topic: { name: string; description: string | null };
+  question: string;
+  expectedPoints: string[];
+  answer: string;
+  explainer: ExplainerContent | null;
+}
+
+export interface AnswerGrade {
+  rating: ReviewRating;
+  pointsCovered: string[];
+  pointsMissed: string[];
+  relevantKeyPointIds: string[];
 }
 
 export interface ReconcileRecallPromptsInput {

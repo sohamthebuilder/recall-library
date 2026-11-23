@@ -8,6 +8,7 @@ import {
   getExplainerVersion,
   restoreExplainerVersion,
 } from "./explainer-editing";
+import { type EditExplainerByInstructionInput, editExplainerByInstruction } from "./explainer-instruction";
 import {
   countExplainersCitingSource,
   getExplainer,
@@ -33,6 +34,15 @@ import {
   resumeRecallPrompt,
   suspendRecallPrompt,
 } from "./recall-prompts";
+import {
+  type DueOptions,
+  dueRecallPrompts,
+  overruleGrade,
+  reviewSession,
+  startReview,
+  submitReview,
+  topicReviews,
+} from "./reviews";
 import { addSource, deleteSource, getSource, library, retrySource } from "./sources";
 import {
   acceptSuggestedEdit,
@@ -111,6 +121,8 @@ export function createCore(deps: CoreDeps) {
     switchExplainerForm: (input: SwitchExplainerFormInput) => switchExplainerForm(deps, input),
     /** Put the Explainer in the learner's own words: title, key points, analogy, diagram labels. */
     editExplainerText: (input: EditExplainerTextInput) => editExplainerText(deps, input),
+    /** Reshape the Explainer by telling the AI what to change; saved as a new version (cause `instruction`). */
+    editExplainerByInstruction: (input: EditExplainerByInstructionInput) => editExplainerByInstruction(deps, input),
     /** One version (current or earlier) with the passages it cites. */
     explainerVersion: (ref: ExplainerVersionRef) => getExplainerVersion(deps, ref),
     /** The current key points next to the Source passages they cite, and what the AI first wrote. */
@@ -136,6 +148,20 @@ export function createCore(deps: CoreDeps) {
     suspendRecallPrompt: (promptId: string) => suspendRecallPrompt(deps, promptId),
     resumeRecallPrompt: (promptId: string) => resumeRecallPrompt(deps, promptId),
     deleteRecallPrompt: (promptId: string) => deleteRecallPrompt(deps, promptId),
+
+    // Reviews (#6)
+    /** Every active prompt due today or earlier, interleaved across Topics, with an estimated duration. */
+    dueRecallPrompts: (options?: DueOptions) => dueRecallPrompts(deps, options),
+    /** Resume the open Review session, or start one over the due queue (null when nothing is due). */
+    startReview: (options?: DueOptions) => startReview(deps, options),
+    /** The open Review session, or null. */
+    reviewSession: () => reviewSession(deps),
+    /** Grade a typed answer and reschedule the prompt with the rating. */
+    submitReview: (input: Arg<typeof submitReview>) => submitReview(deps, input),
+    /** Replace a Review's rating; the final rating reschedules the prompt. */
+    overruleGrade: (input: Arg<typeof overruleGrade>) => overruleGrade(deps, input),
+    /** A Topic's Review history, newest first (deleted prompts' Reviews included). */
+    topicReviews: (topicId: string) => topicReviews(deps, topicId),
 
     /** Drain the background job queue. See jobs.ts. */
     runJobs: (options?: RunJobsOptions) => runJobs(deps, jobHandlers, options),

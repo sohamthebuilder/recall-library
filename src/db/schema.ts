@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
+  boolean,
   doublePrecision,
   index,
   integer,
@@ -301,6 +302,64 @@ export const recallPrompts = pgTable(
     lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }),
   },
   (t) => [index("recall_prompts_topic").on(t.topicId), index("recall_prompts_due").on(t.state, t.due)],
+);
+
+/** FSRS's four-point rating scale. */
+export const reviewRating = pgEnum("review_rating", ["again", "hard", "good", "easy"]);
+/** `scheduled` = the prompt was due; `practice` = done early (#8: updates FSRS only when rated Again). */
+export const reviewKind = pgEnum("review_kind", ["scheduled", "practice"]);
+
+/**
+ * A Review session: the queue of prompts the learner is working through, saved so an
+ * interrupted session resumes where it left off. `prompt_ids` is the queue's order when it
+ * started; a prompt is done in the session once it has a Review with this session_id.
+ * At most one session of each kind is open (`finished_at` null) at a time.
+ */
+export const reviewSessions = pgTable(
+  "review_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: reviewKind("kind").notNull().default("scheduled"),
+    promptIds: jsonb("prompt_ids").$type<string[]>().notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("review_sessions_one_open").on(t.kind).where(sql`${t.finishedAt} is null`)],
+);
+
+/**
+ * One Review of a Recall Prompt: the answer, the AI's grade and the final rating (the
+ * learner's, if they overruled it). Soft-deleting the prompt keeps its Reviews; hard-deleting
+ * its Topic cascades through the prompt and removes them too (ADR 0002).
+ * `card_before` is the prompt's FSRS memory state before this Review, so overruling the
+ * grade can re-schedule from it.
+ */
+export const reviews = pgTable(
+  "reviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    promptId: uuid("prompt_id")
+      .notNull()
+      .references(() => recallPrompts.id, { onDelete: "cascade" }),
+    sessionId: uuid("session_id").references(() => reviewSessions.id, { onDelete: "set null" }),
+    kind: reviewKind("kind").notNull(),
+    /** The question as it was worded when answered. */
+    question: text("question").notNull(),
+    answer: text("answer").notNull(),
+    aiRating: reviewRating("ai_rating").notNull(),
+    /** The final rating: the AI's, or the learner's once overruled. */
+    rating: reviewRating("rating").notNull(),
+    overruled: boolean("overruled").notNull().default(false),
+    pointsCovered: jsonb("points_covered").$type<string[]>().notNull(),
+    pointsMissed: jsonb("points_missed").$type<string[]>().notNull(),
+    /** The Explainer version graded against, and the key points of it the AI found relevant. */
+    explainerVersionId: uuid("explainer_version_id").references(() => explainerVersions.id, { onDelete: "set null" }),
+    relevantKeyPointIds: jsonb("relevant_key_point_ids").$type<string[]>().notNull(),
+    /** The prompt's FSRS memory state just before this Review (see src/core/scheduling.ts). */
+    cardBefore: jsonb("card_before").notNull(),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [index("reviews_prompt").on(t.promptId, t.reviewedAt), index("reviews_session").on(t.sessionId)],
 );
 
 export const jobStatus = pgEnum("job_status", ["queued", "running", "done", "failed"]);

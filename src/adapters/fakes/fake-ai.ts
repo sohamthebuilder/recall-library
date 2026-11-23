@@ -2,7 +2,10 @@ import type { ExplainerDraft, ExplainerStep } from "@/core/explainer-content";
 import {
   AiError,
   type AiAdapter,
+  type AnswerGrade,
+  type ApplyExplainerInstructionInput,
   type ConfirmTopicMatchInput,
+  type GradeAnswerInput,
   type GenerateExplainerInput,
   type GenerateExplainerStepsInput,
   type GenerateRecallPromptsInput,
@@ -37,6 +40,8 @@ type Scripted<T> = T | (() => T | Promise<T>);
  *   scriptRecallPromptReconciliationFailure, keyed by Topic name)
  * - suggestEdits: no Suggested Edits (scriptSuggestedEdits / scriptSuggestedEditsFailure,
  *   keyed by Topic name)
+ * - applyExplainerInstruction: the same Explainer with the instruction as its analogy
+ *   (scriptExplainerInstruction / scriptExplainerInstructionFailure, keyed by Topic name)
  */
 export class FakeAi implements AiAdapter {
   private readonly scriptedEmbeddings = new Map<string, number[]>();
@@ -53,6 +58,12 @@ export class FakeAi implements AiAdapter {
 
   private readonly scriptedReconciliations = new Map<string, ReconciliationScript>();
   private readonly reconciliationFailures = new Map<string, string[]>();
+
+  private readonly scriptedInstructions = new Map<string, InstructionScript>();
+  private readonly instructionFailures = new Map<string, string[]>();
+
+  /** Every applyExplainerInstruction call, in order. */
+  readonly instructionRequests: ApplyExplainerInstructionInput[] = [];
 
   /** Every reconcileRecallPrompts call, in order. */
   readonly reconciliationRequests: ReconcileRecallPromptsInput[] = [];
@@ -170,6 +181,40 @@ export class FakeAi implements AiAdapter {
     return (typeof scripted === "function" ? await scripted(input) : scripted) as RecallPromptDraft[];
   }
 
+  // --- gradeAnswer (#6). Default: Good, every expected point covered, the Explainer's first key point relevant.
+  private readonly scriptedGrades = new Map<string, GradeScript>();
+  private readonly gradeFailures = new Map<string, string[]>();
+  /** Every gradeAnswer call, in order. */
+  readonly gradeRequests: GradeAnswerInput[] = [];
+
+  /** Make `gradeAnswer` for a prompt with exactly this question return this grade (or what the function builds). Need not be valid. */
+  scriptGrade(question: string, grade: GradeScript): this {
+    this.scriptedGrades.set(question, grade);
+    return this;
+  }
+
+  /** Make the next `gradeAnswer` call for this question fail with this reason (then it behaves as scripted). */
+  scriptGradeFailure(question: string, reason: string): this {
+    this.gradeFailures.set(question, [...(this.gradeFailures.get(question) ?? []), reason]);
+    return this;
+  }
+
+  async gradeAnswer(input: GradeAnswerInput): Promise<AnswerGrade> {
+    this.gradeRequests.push(input);
+    const failure = this.gradeFailures.get(input.question)?.shift();
+    if (failure !== undefined) throw new AiError(failure);
+    const scripted = this.scriptedGrades.get(input.question);
+    if (scripted === undefined) {
+      return {
+        rating: "good",
+        pointsCovered: input.expectedPoints,
+        pointsMissed: [],
+        relevantKeyPointIds: input.explainer?.keyPoints.slice(0, 1).map((k) => k.id) ?? [],
+      };
+    }
+    return (typeof scripted === "function" ? await scripted(input) : scripted) as AnswerGrade;
+  }
+
   /**
    * Make `reconcileRecallPrompts` for the Topic with this name return this result (or what the
    * function builds from the request). Need not be valid.
@@ -221,6 +266,30 @@ export class FakeAi implements AiAdapter {
     return (typeof scripted === "function" ? await scripted(input) : scripted) as SuggestedEditDraft[];
   }
 
+  /**
+   * Make `applyExplainerInstruction` for the Topic with this name return this draft (or what the
+   * function builds from the request). Need not be valid.
+   */
+  scriptExplainerInstruction(topicName: string, result: InstructionScript): this {
+    this.scriptedInstructions.set(topicName, result);
+    return this;
+  }
+
+  /** Make the next `applyExplainerInstruction` call for this Topic fail with this reason (then it behaves as scripted). */
+  scriptExplainerInstructionFailure(topicName: string, reason: string): this {
+    this.instructionFailures.set(topicName, [...(this.instructionFailures.get(topicName) ?? []), reason]);
+    return this;
+  }
+
+  async applyExplainerInstruction(input: ApplyExplainerInstructionInput): Promise<ExplainerDraft> {
+    this.instructionRequests.push(input);
+    const failure = this.instructionFailures.get(input.topic.name)?.shift();
+    if (failure !== undefined) throw new AiError(failure);
+    const scripted = this.scriptedInstructions.get(input.topic.name);
+    if (scripted === undefined) return { ...input.explainer, analogy: input.instruction };
+    return (typeof scripted === "function" ? await scripted(input) : scripted) as ExplainerDraft;
+  }
+
   async embed(texts: string[]): Promise<number[][]> {
     return texts.map((t) => this.scriptedEmbeddings.get(t) ?? defaultEmbedding(t));
   }
@@ -248,6 +317,14 @@ export type ExplainerScript =
   | ExplainerDraft
   | Record<string, unknown>
   | ((input: GenerateExplainerInput) => ExplainerDraft | Record<string, unknown> | Promise<ExplainerDraft | Record<string, unknown>>);
+
+/** A draft, or a builder from the request. Typed loosely so tests can script invalid drafts. */
+export type InstructionScript =
+  | ExplainerDraft
+  | Record<string, unknown>
+  | ((
+      input: ApplyExplainerInstructionInput,
+    ) => ExplainerDraft | Record<string, unknown> | Promise<ExplainerDraft | Record<string, unknown>>);
 
 /** Steps, or a builder from the request. Typed loosely so tests can script invalid steps. */
 export type StepsScript =
@@ -279,6 +356,12 @@ function defaultExplainer({ topic, passages }: GenerateExplainerInput): Explaine
     steps: [],
   };
 }
+
+/** A grade, or a builder from the request. Typed loosely so tests can script invalid ones. */
+export type GradeScript =
+  | AnswerGrade
+  | Record<string, unknown>
+  | ((input: GradeAnswerInput) => AnswerGrade | Record<string, unknown> | Promise<AnswerGrade | Record<string, unknown>>);
 
 /** A reconciliation, or a builder from the request. Typed loosely so tests can script invalid ones. */
 export type ReconciliationScript =

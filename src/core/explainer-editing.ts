@@ -219,7 +219,7 @@ function keyPointOrigins(versions: (typeof explainerVersions.$inferSelect)[]): M
 // ---------------------------------------------------------------------------------------
 
 /** The Topic's Explainer and the content of its current version, or NotFound/Validation errors. */
-async function currentContent(deps: CoreDeps, topicId: string) {
+export async function currentContent(deps: CoreDeps, topicId: string) {
   const [topic] = await deps.db.select({ id: topics.id }).from(topics).where(sql`${topics.id}::text = ${topicId}`);
   if (!topic) throw new NotFoundError("That Topic no longer exists.");
   const explainer = await explainerRow(deps.db, topic.id);
