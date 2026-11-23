@@ -40,6 +40,31 @@ export interface AiAdapter {
    * the key points a good answer covers (taken from the Explainer). The core validates them.
    */
   generateRecallPrompts(input: GenerateRecallPromptsInput): Promise<RecallPromptDraft[]>;
+
+  /**
+   * Grade the learner's answer to a Recall Prompt against its expected key points and the
+   * Topic's current Explainer (null if it has none). Returns an FSRS rating, which expected
+   * points the answer covered and missed, and the ids of the Explainer key points it is about.
+   * The core validates the result.
+   */
+  gradeAnswer(input: GradeAnswerInput): Promise<AnswerGrade>;
+}
+
+export type ReviewRating = "again" | "hard" | "good" | "easy";
+
+export interface GradeAnswerInput {
+  topic: { name: string; description: string | null };
+  question: string;
+  expectedPoints: string[];
+  answer: string;
+  explainer: ExplainerContent | null;
+}
+
+export interface AnswerGrade {
+  rating: ReviewRating;
+  pointsCovered: string[];
+  pointsMissed: string[];
+  relevantKeyPointIds: string[];
 }
 
 export interface GenerateExplainerStepsInput {

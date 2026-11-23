@@ -822,3 +822,107 @@ g[class^="group-"]:not(.group-none) .diagram-node {
   max-width: 560px;
   margin: 0 auto;
 }
+
+/* Reviews (#6): due banner on the home screen, the Review screen, a Topic's Review history. */
+.due-banner {
+  margin-bottom: 24px;
+}
+
+.due-banner p {
+  margin: 0;
+}
+
+a.button-link {
+  display: inline-block;
+  border-radius: 8px;
+  padding: 8px 14px;
+  background: var(--accent);
+  color: var(--accent-text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.review-layout {
+  display: grid;
+  grid-template-columns: 1fr minmax(260px, 340px);
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 760px) {
+  .review-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.review-question {
+  font-size: 1.3rem;
+  margin: 8px 0 16px;
+}
+
+.review-card textarea {
+  width: 100%;
+}
+
+.review-result {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.review-grade p {
+  margin: 0 0 8px;
+}
+
+.review-points {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 520px) {
+  .review-points {
+    grid-template-columns: 1fr;
+  }
+}
+
+.points-missed li {
+  color: var(--danger);
+}
+
+.review-explainer {
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.review-tools summary {
+  cursor: pointer;
+}
+
+.review-tools .button-row {
+  margin-top: 12px;
+}
+
+.review-history {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.review-history li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

@@ -25,6 +25,15 @@ import {
   resumeRecallPrompt,
   suspendRecallPrompt,
 } from "./recall-prompts";
+import {
+  type DueOptions,
+  dueRecallPrompts,
+  overruleGrade,
+  reviewSession,
+  startReview,
+  submitReview,
+  topicReviews,
+} from "./reviews";
 import { addSource, deleteSource, getSource, library, retrySource } from "./sources";
 import { type FindTopicsInput, findTopics, listTags, tagTopic, untagTopic } from "./tags";
 import { importTopics, linkSourceByHand } from "./topic-import";
@@ -104,6 +113,20 @@ export function createCore(deps: CoreDeps) {
     suspendRecallPrompt: (promptId: string) => suspendRecallPrompt(deps, promptId),
     resumeRecallPrompt: (promptId: string) => resumeRecallPrompt(deps, promptId),
     deleteRecallPrompt: (promptId: string) => deleteRecallPrompt(deps, promptId),
+
+    // Reviews (#6)
+    /** Every active prompt due today or earlier, interleaved across Topics, with an estimated duration. */
+    dueRecallPrompts: (options?: DueOptions) => dueRecallPrompts(deps, options),
+    /** Resume the open Review session, or start one over the due queue (null when nothing is due). */
+    startReview: (options?: DueOptions) => startReview(deps, options),
+    /** The open Review session, or null. */
+    reviewSession: () => reviewSession(deps),
+    /** Grade a typed answer and reschedule the prompt with the rating. */
+    submitReview: (input: Arg<typeof submitReview>) => submitReview(deps, input),
+    /** Replace a Review's rating; the final rating reschedules the prompt. */
+    overruleGrade: (input: Arg<typeof overruleGrade>) => overruleGrade(deps, input),
+    /** A Topic's Review history, newest first (deleted prompts' Reviews included). */
+    topicReviews: (topicId: string) => topicReviews(deps, topicId),
 
     /** Drain the background job queue. See jobs.ts. */
     runJobs: (options?: RunJobsOptions) => runJobs(deps, jobHandlers, options),

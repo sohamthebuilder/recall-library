@@ -35,6 +35,18 @@ export type {
   RecallPromptState,
 } from "./recall-prompts";
 export { RECALL_PROMPT_KINDS, recallPromptKindLabel } from "./recall-prompt-kinds";
+export type {
+  DueOptions,
+  DuePrompt,
+  DueQueue,
+  OverruleGradeInput,
+  Review,
+  ReviewKind,
+  ReviewRating,
+  ReviewSession,
+  SubmitReviewInput,
+} from "./reviews";
+export { MINUTES_PER_REVIEW } from "./reviews";
 export type { RunJobsOptions, RunJobsResult } from "./jobs";
 export type { AiAdapter, ExplainerPassage, GenerateExplainerInput, TopicCandidate } from "./ports/ai";
 export { AiError } from "./ports/ai";
