@@ -1,4 +1,4 @@
-import type { ExplainerDraft, ExplainerStep } from "@/core/explainer-content";
+import type { ExplainerContent, ExplainerDraft, ExplainerStep } from "@/core/explainer-content";
 import {
   AiError,
   type AiAdapter,
@@ -8,6 +8,8 @@ import {
   type GenerateRecallPromptsInput,
   type ProposeTopicsInput,
   type RecallPromptDraft,
+  type RecallPromptReconciliation,
+  type ReconcileRecallPromptsInput,
   type TopicCandidate,
 } from "@/core/ports/ai";
 import { EMBEDDING_DIMENSIONS } from "@/db/schema";
@@ -308,7 +310,76 @@ export function createOpenAiAdapter(options: OpenAiOptions): AiAdapter {
       );
       return result.prompts;
     },
+
+    async reconcileRecallPrompts({
+      topic,
+      explainer,
+      prompts,
+      learnerPrompts,
+    }: ReconcileRecallPromptsInput): Promise<RecallPromptReconciliation> {
+      // Prompts are numbered for the model (ids are easy to mangle) and mapped back here.
+      const result = await structured<{ keep: number[]; add: RecallPromptDraft[] }>(
+        "recall_prompt_reconciliation",
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["keep", "add"],
+          properties: {
+            keep: { type: "array", items: { type: "integer" } },
+            add: RECALL_PROMPTS_JSON_SCHEMA,
+          },
+        },
+        [
+          "A learner changed the Explainer for a Topic. You check their existing Recall Prompts against the new Explainer.",
+          "keep: the numbers of the prompts that still fit, i.e. can be answered from the new Explainer and whose expected",
+          "points still agree with it. Keep a prompt unless it no longer fits: keeping preserves the learner's progress.",
+          "add: new prompts (kinds explain, compare, apply, why) only for important content of the new Explainer that no kept",
+          "prompt and no learner prompt covers. Often none. expectedPoints: 1-4 short points taken from the Explainer.",
+          "Use ONLY the Explainer given.",
+        ].join("\n"),
+        [
+          `Topic: ${describe(topic)}`,
+          explainerText(explainer),
+          "Prompts to check:",
+          ...prompts.map((p, i) => `${i + 1}. [${p.kind}] ${p.question} (expects: ${p.expectedPoints.join("; ")})`),
+          ...(learnerPrompts.length > 0
+            ? ["The learner's own prompts (do not repeat them):", ...learnerPrompts.map((p) => `- [${p.kind}] ${p.question}`)]
+            : []),
+        ].join("\n"),
+      );
+      return {
+        keep: result.keep.flatMap((n) => (prompts[n - 1] ? [prompts[n - 1]!.id] : [])),
+        add: result.add,
+      };
+    },
   };
+}
+
+const RECALL_PROMPTS_JSON_SCHEMA = {
+  type: "array",
+  items: {
+    type: "object",
+    additionalProperties: false,
+    required: ["kind", "question", "expectedPoints"],
+    properties: {
+      kind: { type: "string", enum: ["explain", "compare", "apply", "why"] },
+      question: { type: "string" },
+      expectedPoints: { type: "array", items: { type: "string" } },
+    },
+  },
+};
+
+/** An Explainer as plain text for a prompt: title, key points, analogy, diagram edges. */
+function explainerText(explainer: ExplainerContent): string {
+  const label = (id: string) => explainer.diagram.nodes.find((n) => n.id === id)?.label ?? id;
+  return [
+    `Explainer: ${explainer.title}`,
+    ...explainer.keyPoints.map((k) => `- ${k.text}`),
+    ...(explainer.analogy ? [`Analogy: ${explainer.analogy}`] : []),
+    ...(explainer.diagram.edges.length > 0
+      ? ["Diagram:", ...explainer.diagram.edges.map((e) => `- ${label(e.from)} ${e.label ?? "->"} ${label(e.to)}`)]
+      : []),
+  ].join("\n");
 }
 
 const STEPS_JSON_SCHEMA = {
@@ -363,6 +434,7 @@ export function openAiFromEnv(): AiAdapter {
       generateExplainer: missing,
       generateExplainerSteps: missing,
       generateRecallPrompts: missing,
+      reconcileRecallPrompts: missing,
     };
   }
   return createOpenAiAdapter({

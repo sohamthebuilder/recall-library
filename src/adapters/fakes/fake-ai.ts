@@ -8,6 +8,8 @@ import {
   type GenerateRecallPromptsInput,
   type ProposeTopicsInput,
   type RecallPromptDraft,
+  type RecallPromptReconciliation,
+  type ReconcileRecallPromptsInput,
   type TopicCandidate,
 } from "@/core/ports/ai";
 import { EMBEDDING_DIMENSIONS } from "@/db/schema";
@@ -29,6 +31,8 @@ type Scripted<T> = T | (() => T | Promise<T>);
  *   scriptExplainerStepsFailure, keyed by Topic name)
  * - generateRecallPrompts: one prompt of each kind, expecting the Explainer's first key point
  *   (scriptRecallPrompts / scriptRecallPromptsFailure, keyed by Topic name)
+ * - reconcileRecallPrompts: keep every prompt, add none (scriptRecallPromptReconciliation /
+ *   scriptRecallPromptReconciliationFailure, keyed by Topic name)
  */
 export class FakeAi implements AiAdapter {
   private readonly scriptedEmbeddings = new Map<string, number[]>();
@@ -42,6 +46,12 @@ export class FakeAi implements AiAdapter {
   private readonly stepsFailures = new Map<string, string[]>();
   private readonly scriptedRecallPrompts = new Map<string, RecallPromptsScript>();
   private readonly recallPromptFailures = new Map<string, string[]>();
+
+  private readonly scriptedReconciliations = new Map<string, ReconciliationScript>();
+  private readonly reconciliationFailures = new Map<string, string[]>();
+
+  /** Every reconcileRecallPrompts call, in order. */
+  readonly reconciliationRequests: ReconcileRecallPromptsInput[] = [];
 
   /** Every generateRecallPrompts call, in order. */
   readonly recallPromptRequests: GenerateRecallPromptsInput[] = [];
@@ -156,6 +166,30 @@ export class FakeAi implements AiAdapter {
     return (typeof scripted === "function" ? await scripted(input) : scripted) as RecallPromptDraft[];
   }
 
+  /**
+   * Make `reconcileRecallPrompts` for the Topic with this name return this result (or what the
+   * function builds from the request). Need not be valid.
+   */
+  scriptRecallPromptReconciliation(topicName: string, result: ReconciliationScript): this {
+    this.scriptedReconciliations.set(topicName, result);
+    return this;
+  }
+
+  /** Make the next `reconcileRecallPrompts` call for this Topic fail with this reason (then it behaves as scripted). */
+  scriptRecallPromptReconciliationFailure(topicName: string, reason: string): this {
+    this.reconciliationFailures.set(topicName, [...(this.reconciliationFailures.get(topicName) ?? []), reason]);
+    return this;
+  }
+
+  async reconcileRecallPrompts(input: ReconcileRecallPromptsInput): Promise<RecallPromptReconciliation> {
+    this.reconciliationRequests.push(input);
+    const failure = this.reconciliationFailures.get(input.topic.name)?.shift();
+    if (failure !== undefined) throw new AiError(failure);
+    const scripted = this.scriptedReconciliations.get(input.topic.name);
+    if (scripted === undefined) return { keep: input.prompts.map((p) => p.id), add: [] };
+    return (typeof scripted === "function" ? await scripted(input) : scripted) as RecallPromptReconciliation;
+  }
+
   async embed(texts: string[]): Promise<number[][]> {
     return texts.map((t) => this.scriptedEmbeddings.get(t) ?? defaultEmbedding(t));
   }
@@ -214,6 +248,14 @@ function defaultExplainer({ topic, passages }: GenerateExplainerInput): Explaine
     steps: [],
   };
 }
+
+/** A reconciliation, or a builder from the request. Typed loosely so tests can script invalid ones. */
+export type ReconciliationScript =
+  | RecallPromptReconciliation
+  | { keep: unknown; add: unknown }
+  | ((
+      input: ReconcileRecallPromptsInput,
+    ) => RecallPromptReconciliation | { keep: unknown; add: unknown } | Promise<RecallPromptReconciliation | { keep: unknown; add: unknown }>);
 
 /** Drafts, or a builder from the request. Typed loosely so tests can script invalid ones. */
 type LooseRecallPrompts = (RecallPromptDraft | Record<string, unknown>)[];

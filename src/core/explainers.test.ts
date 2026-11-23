@@ -75,7 +75,7 @@ describe("generating a Topic's Explainer", () => {
       anchor: chunk!.anchor,
     });
     expect(await t.core.explainerVersions(topic.id)).toEqual([
-      { id: explainer!.current!.id, number: 1, cause: "generated", createdAt: new Date("2026-03-01T10:00:00Z") },
+      { id: explainer!.current!.id, number: 1, cause: "generated", createdAt: new Date("2026-03-01T10:00:00Z"), restoredFrom: null },
     ]);
   });
 });

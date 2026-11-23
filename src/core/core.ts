@@ -1,6 +1,14 @@
 import type { Db } from "@/db/types";
 import { chunksOfSource, similarChunks } from "./chunks";
 import {
+  compareExplainerWithSources,
+  type EditExplainerTextInput,
+  editExplainerText,
+  type ExplainerVersionRef,
+  getExplainerVersion,
+  restoreExplainerVersion,
+} from "./explainer-editing";
+import {
   countExplainersCitingSource,
   getExplainer,
   listExplainerVersions,
@@ -95,6 +103,14 @@ export function createCore(deps: CoreDeps) {
     explainerVersions: (topicId: string) => listExplainerVersions(deps, topicId),
     retryExplainer: (topicId: string) => retryExplainer(deps, topicId),
     switchExplainerForm: (input: SwitchExplainerFormInput) => switchExplainerForm(deps, input),
+    /** Put the Explainer in the learner's own words: title, key points, analogy, diagram labels. */
+    editExplainerText: (input: EditExplainerTextInput) => editExplainerText(deps, input),
+    /** One version (current or earlier) with the passages it cites. */
+    explainerVersion: (ref: ExplainerVersionRef) => getExplainerVersion(deps, ref),
+    /** The current key points next to the Source passages they cite, and what the AI first wrote. */
+    explainerComparison: (topicId: string) => compareExplainerWithSources(deps, topicId),
+    /** Make an earlier version current again, as a new version (cause `restore`). */
+    restoreExplainerVersion: (ref: ExplainerVersionRef) => restoreExplainerVersion(deps, ref),
 
     // Recall Prompts
     recallPrompts: (topicId: string) => listRecallPrompts(deps, topicId),
