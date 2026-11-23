@@ -14,6 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </h1>
           <Link href="/">Library</Link>
           <Link href="/topics">Topics</Link>
+          <Link href="/review">Review</Link>
         </nav>
         <form
           action={async () => {

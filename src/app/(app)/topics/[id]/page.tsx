@@ -8,6 +8,7 @@ import { DeleteTopicButton } from "./delete-topic-button";
 import { ExplainerPanel } from "./explainer-panel";
 import { LinkSourceForm } from "./link-source-form";
 import { RecallPromptsPanel } from "./recall-prompts-panel";
+import { ReviewHistory } from "./review-history";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +92,7 @@ export default async function TopicPage({ params }: { params: Promise<{ id: stri
             <LinkSourceForm topicId={topic.id} sources={linkable} />
           </section>
           <RecallPromptsPanel topicId={topic.id} explainer={explainer} prompts={prompts} />
+          <ReviewHistory topicId={topic.id} />
         </aside>
       </div>
     </>

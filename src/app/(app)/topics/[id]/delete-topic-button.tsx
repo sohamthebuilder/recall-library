@@ -11,7 +11,7 @@ export function DeleteTopicButton({ name }: { name: string }) {
       className="danger"
       disabled={pending}
       onClick={(e) => {
-        if (!confirm(`Delete the Topic “${name}”? Its Sources stay in your Library.`)) e.preventDefault();
+        if (!confirm(`Delete the Topic “${name}”? Its Recall Prompts and Review history go too; its Sources stay in your Library.`)) e.preventDefault();
       }}
     >
       {pending ? "Deleting…" : "Delete Topic"}
