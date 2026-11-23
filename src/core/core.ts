@@ -17,7 +17,7 @@ import {
   type SwitchExplainerFormInput,
   switchExplainerForm,
 } from "./explainers";
-import { jobHandlers } from "./job-handlers";
+import { jobGiveUpHandlers, jobHandlers } from "./job-handlers";
 import { runJobs, type RunJobsOptions } from "./jobs";
 import type { AiAdapter } from "./ports/ai";
 import type { Clock } from "./ports/clock";
@@ -48,9 +48,11 @@ import { transcribeAnswer } from "./spoken-answers";
 import { addSource, deleteSource, getSource, library, retrySource } from "./sources";
 import {
   acceptSuggestedEdit,
+  listSuggestedEditFailures,
   listSuggestedEdits,
   pendingSuggestedEditCounts,
   rejectSuggestedEdit,
+  retrySuggestedEdits,
 } from "./suggested-edits";
 import { type FindTopicsInput, findTopics, listTags, tagTopic, untagTopic } from "./tags";
 import { importTopics, linkSourceByHand } from "./topic-import";
@@ -141,6 +143,10 @@ export function createCore(deps: CoreDeps) {
     acceptSuggestedEdit: (suggestedEditId: string) => acceptSuggestedEdit(deps, suggestedEditId),
     /** Turn one down; the Explainer does not change. */
     rejectSuggestedEdit: (suggestedEditId: string) => rejectSuggestedEdit(deps, suggestedEditId),
+    /** Linked Sources the AI failed to check for Suggested Edits ("Couldn't check <Source>", with a Retry). */
+    suggestedEditFailures: (topicId: string) => listSuggestedEditFailures(deps, topicId),
+    /** Check a Source again for Suggested Edits after a failed check. */
+    retrySuggestedEdits: (input: Arg<typeof retrySuggestedEdits>) => retrySuggestedEdits(deps, input),
 
     // Recall Prompts
     recallPrompts: (topicId: string) => listRecallPrompts(deps, topicId),
@@ -174,7 +180,7 @@ export function createCore(deps: CoreDeps) {
     practiceSession: () => practiceSession(deps),
 
     /** Drain the background job queue. See jobs.ts. */
-    runJobs: (options?: RunJobsOptions) => runJobs(deps, jobHandlers, options),
+    runJobs: (options?: RunJobsOptions) => runJobs(deps, jobHandlers, options, jobGiveUpHandlers),
   };
 }
 

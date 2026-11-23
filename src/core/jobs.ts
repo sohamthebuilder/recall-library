@@ -1,4 +1,4 @@
-import { and, asc, eq, lt, or, sql } from "drizzle-orm";
+import { and, asc, eq, gte, lt, or, sql } from "drizzle-orm";
 import { jobs } from "@/db/schema";
 import type { DbOrTx } from "@/db/types";
 import type { CoreDeps } from "./core";
@@ -32,6 +32,18 @@ export type JobHandlers = {
 /** A job left `running` this long is assumed to have died with its process and is run again. */
 const STALE_RUNNING_JOB_MS = 15 * 60 * 1000;
 
+/**
+ * A job is started at most this many times. One that died with its process this often (e.g. it
+ * always outruns the serverless time limit) is given up: marked failed, and its kind's give-up
+ * handler tells the learner through domain state.
+ */
+export const MAX_JOB_ATTEMPTS = 3;
+
+/** What to do, per job kind, when a job is given up after MAX_JOB_ATTEMPTS. */
+export type JobGiveUpHandlers = {
+  [K in JobKind]?: (deps: CoreDeps, payload: JobPayloads[K]) => Promise<void>;
+};
+
 export async function enqueueJob<K extends JobKind>(
   db: DbOrTx,
   now: Date,
@@ -62,8 +74,10 @@ export async function runJobs(
   deps: CoreDeps,
   handlers: JobHandlers,
   options: RunJobsOptions = {},
+  giveUpHandlers: JobGiveUpHandlers = {},
 ): Promise<RunJobsResult> {
   const result: RunJobsResult = { ran: 0, failed: 0 };
+  await giveUpDeadJobs(deps, giveUpHandlers);
   while (options.maxJobs === undefined || result.ran < options.maxJobs) {
     const job = await claimNextJob(deps);
     if (!job) break;
@@ -87,12 +101,31 @@ export async function runJobs(
   return result;
 }
 
+/** Jobs that died with their process MAX_JOB_ATTEMPTS times are failed instead of run again. */
+async function giveUpDeadJobs(deps: CoreDeps, giveUpHandlers: JobGiveUpHandlers) {
+  const now = deps.clock.now();
+  const staleBefore = new Date(now.getTime() - STALE_RUNNING_JOB_MS);
+  const dead = await deps.db
+    .update(jobs)
+    .set({
+      status: "failed",
+      finishedAt: now,
+      lastError: `Gave up: the job stopped without finishing ${MAX_JOB_ATTEMPTS} times.`,
+    })
+    .where(and(eq(jobs.status, "running"), lt(jobs.startedAt, staleBefore), gte(jobs.attempts, MAX_JOB_ATTEMPTS)))
+    .returning({ kind: jobs.kind, payload: jobs.payload });
+  for (const job of dead) {
+    const handler = giveUpHandlers[job.kind as JobKind] as ((deps: CoreDeps, payload: unknown) => Promise<void>) | undefined;
+    if (handler) await handler(deps, job.payload);
+  }
+}
+
 async function claimNextJob(deps: CoreDeps) {
   const now = deps.clock.now();
   const staleBefore = new Date(now.getTime() - STALE_RUNNING_JOB_MS);
   const runnable = or(
     eq(jobs.status, "queued"),
-    and(eq(jobs.status, "running"), lt(jobs.startedAt, staleBefore)),
+    and(eq(jobs.status, "running"), lt(jobs.startedAt, staleBefore), lt(jobs.attempts, MAX_JOB_ATTEMPTS)),
   );
   // Claim atomically so concurrent runners (after() + cron) never run the same job twice.
   const next = deps.db

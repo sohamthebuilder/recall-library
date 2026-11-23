@@ -256,6 +256,57 @@ describe("Suggested Edits from a new Source", () => {
     expect((await t.core.explainerVersions(topic.id)).map((v) => v.number)).toEqual([1]);
   });
 
+  it("an AI failure is shown on the Topic, and checking the Source again brings its Suggested Edits", async () => {
+    const t = await createTestCore();
+    const topic = await topicWithExplainer(t);
+    t.ai.scriptSuggestedEditsFailure(TOPIC, "The AI is down.");
+    const source = await linkNewSource(t, topic.id);
+
+    expect(await t.core.suggestedEditFailures(topic.id)).toEqual([
+      { source: { id: source.id, title: "Rebalancing" }, reason: "The AI is down." },
+    ]);
+
+    t.ai.scriptSuggestedEdits(TOPIC, twoEdits);
+    await t.core.retrySuggestedEdits({ topicId: topic.id, sourceId: source.id });
+    await t.core.runJobs();
+
+    expect(await t.core.suggestedEditFailures(topic.id)).toEqual([]);
+    expect(await t.core.suggestedEdits(topic.id)).toHaveLength(2);
+    // Only a failed check can be retried.
+    await expect(t.core.retrySuggestedEdits({ topicId: topic.id, sourceId: source.id })).rejects.toThrow(ValidationError);
+  });
+
+  it("accepting or rejecting one twice at once decides it once", async () => {
+    const t = await createTestCore();
+    const topic = await topicWithExplainer(t);
+    t.ai.scriptSuggestedEdits(TOPIC, twoEdits);
+    await linkNewSource(t, topic.id);
+    const [adds, contradicts] = await t.core.suggestedEdits(topic.id);
+
+    const accepts = await Promise.allSettled([t.core.acceptSuggestedEdit(adds!.id), t.core.acceptSuggestedEdit(adds!.id)]);
+    const rejects = await Promise.allSettled([
+      t.core.rejectSuggestedEdit(contradicts!.id),
+      t.core.acceptSuggestedEdit(contradicts!.id),
+    ]);
+
+    expect(accepts.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect(rejects.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect([...accepts, ...rejects].filter((r) => r.status === "rejected")).toEqual([
+      expect.objectContaining({ reason: expect.any(ValidationError) }),
+      expect.objectContaining({ reason: expect.any(ValidationError) }),
+    ]);
+    const versions = (await t.core.explainerVersions(topic.id)).length;
+    expect(versions === 2 || versions === 3).toBe(true);
+    const current = (await t.core.explainer(topic.id))!.current!.content.keyPoints;
+    expect(current.filter((k) => k.text === "Static membership avoids needless rebalances.")).toHaveLength(1);
+  });
+
+  it("a malformed Topic id is not found", async () => {
+    const t = await createTestCore();
+    await expect(t.core.suggestedEdits("not-a-uuid")).rejects.toThrow(NotFoundError);
+    await expect(t.core.suggestedEditFailures("not-a-uuid")).rejects.toThrow(NotFoundError);
+  });
+
   it("a Source linked by hand before it has text brings Suggested Edits once its text is captured", async () => {
     const t = await createTestCore();
     const topic = await topicWithExplainer(t);

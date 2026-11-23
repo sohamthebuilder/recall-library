@@ -4,6 +4,7 @@ import { createTestCore } from "../../test/harness";
 type TestCore = Awaited<ReturnType<typeof createTestCore>>;
 
 const TOPIC = "Kafka consumer groups";
+const NEW_PROMPT = { kind: "why" as const, question: "Why rebalance at all?", expectedPoints: ["Membership changed"] };
 
 /** A Topic whose Explainer has been generated, with these four generated Recall Prompts. */
 async function topicWithPrompts(t: TestCore) {
@@ -101,7 +102,7 @@ describe("what reconciliation never touches", () => {
       question: "How would you scale a slow consumer?",
       expectedPoints: ["Add partitions"],
     });
-    t.ai.scriptRecallPromptReconciliation(TOPIC, { keep: [], add: [] });
+    t.ai.scriptRecallPromptReconciliation(TOPIC, { keep: [], add: [NEW_PROMPT] });
 
     await t.core.editExplainerText({ topicId: topic.id, title: "Rewritten" });
     await t.core.runJobs();
@@ -141,16 +142,17 @@ describe("what reconciliation never touches", () => {
       ["why", "active"],
     ]);
 
-    t.ai.scriptRecallPromptReconciliation(TOPIC, { keep: [], add: [] });
+    t.ai.scriptRecallPromptReconciliation(TOPIC, { keep: [], add: [NEW_PROMPT] });
     await t.core.editExplainerText({ topicId: topic.id, title: "Second rewrite" });
     await t.core.runJobs();
 
     // The second time, the already-retired prompt is not judged again.
     expect(t.ai.reconciliationRequests[1]!.prompts.map((p) => p.kind).sort()).toEqual(["explain", "why"]);
-    expect((await t.core.recallPrompts(topic.id)).map((p) => [p.kind, p.state])).toEqual([
-      ["explain", "retired"],
-      ["apply", "retired"],
-      ["why", "retired"],
+    expect((await t.core.recallPrompts(topic.id)).map((p) => [p.kind, p.question === NEW_PROMPT.question, p.state]).sort()).toEqual([
+      ["apply", false, "retired"],
+      ["explain", false, "retired"],
+      ["why", false, "retired"],
+      ["why", true, "active"],
     ]);
   });
 });
@@ -166,12 +168,13 @@ describe("when reconciliation runs", () => {
     await t.core.restoreExplainerVersion({ topicId: topic.id, versionId: v1.id });
     await t.core.runJobs();
     await t.core.switchExplainerForm({ topicId: topic.id, form: "animation" });
+    await t.core.editExplainerText({ topicId: topic.id, title: "After the switch" });
     await t.core.runJobs();
 
     expect(t.ai.reconciliationRequests.map((r) => [r.explainer.title, r.explainer.form])).toEqual([
       ["Rewritten", "infographic"],
       [v1.content.title, "infographic"],
-      [v1.content.title, "animation"],
+      ["After the switch", "animation"],
     ]);
   });
 
@@ -196,10 +199,57 @@ describe("when reconciliation runs", () => {
     await t.core.runJobs();
     expect(await t.core.recallPrompts(topic.id)).toEqual(before);
 
-    t.ai.scriptRecallPromptReconciliation(TOPIC, { keep: [], add: [] });
+    t.ai.scriptRecallPromptReconciliation(TOPIC, { keep: [], add: [NEW_PROMPT] });
     await t.core.editExplainerText({ topicId: topic.id, title: "Rewritten again" });
     await t.core.runJobs();
-    expect((await t.core.recallPrompts(topic.id)).every((p) => p.state === "retired")).toBe(true);
+    const after = await t.core.recallPrompts(topic.id);
+    expect(after.filter((p) => before.some((b) => b.id === p.id)).every((p) => p.state === "retired")).toBe(true);
+  });
+
+  it("a result that retires every generated prompt and adds none is not used: nothing changes", async () => {
+    const t = await createTestCore();
+    const { topic } = await topicWithPrompts(t);
+    const before = await t.core.recallPrompts(topic.id);
+    t.ai.scriptRecallPromptReconciliation(TOPIC, { keep: [], add: [] });
+
+    await t.core.editExplainerText({ topicId: topic.id, title: "Rewritten" });
+    const run = await t.core.runJobs();
+
+    expect(run.failed).toBe(1);
+    expect(await t.core.recallPrompts(topic.id)).toEqual(before);
+  });
+
+  it("two reconciliations of one Topic running at once add the new prompts only once", async () => {
+    const t = await createTestCore();
+    const { topic } = await topicWithPrompts(t);
+    t.ai.scriptRecallPromptReconciliation(TOPIC, async ({ prompts: judged }) => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return { keep: judged.map((p) => p.id), add: [NEW_PROMPT] };
+    });
+    // Two changes queue two reconciliation jobs; two job runners pick one each.
+    await t.core.editExplainerText({ topicId: topic.id, title: "First" });
+    await t.core.editExplainerText({ topicId: topic.id, title: "Second" });
+
+    await Promise.all([t.core.runJobs(), t.core.runJobs()]);
+
+    const added = (await t.core.recallPrompts(topic.id)).filter((p) => p.question === NEW_PROMPT.question);
+    expect(added).toHaveLength(1);
+  });
+
+  it("switching form alone needs no AI: the prompts stay as they are, linked to the new version", async () => {
+    const t = await createTestCore();
+    const { topic } = await topicWithPrompts(t);
+    const before = await t.core.recallPrompts(topic.id);
+
+    await t.core.switchExplainerForm({ topicId: topic.id, form: "animation" });
+    await t.core.runJobs();
+
+    expect(t.ai.reconciliationRequests).toEqual([]);
+    expect(await t.core.recallPrompts(topic.id)).toEqual(before);
+    // A later text change is still reconciled (the prompts were checked against the switched version).
+    await t.core.editExplainerText({ topicId: topic.id, title: "Rewritten" });
+    await t.core.runJobs();
+    expect(t.ai.reconciliationRequests.map((r) => [r.explainer.title, r.explainer.form])).toEqual([["Rewritten", "animation"]]);
   });
 
   it("unknown ids the AI asks to keep are ignored, and malformed new prompts are dropped", async () => {

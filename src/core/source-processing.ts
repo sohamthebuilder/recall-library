@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { sourceChunks, sources } from "@/db/schema";
 import { chunkSegments, joinSegments } from "./chunking";
 import { onSourceTextCaptured } from "./explainers";
@@ -77,6 +77,16 @@ export async function processSource(deps: CoreDeps, { sourceId }: { sourceId: st
       .where(eq(sources.id, sourceId));
     if (!known) throw e; // Keep the details on the job for debugging.
   }
+}
+
+export const STOPPED_PROCESSING_REASON = "Processing this Source kept stopping before it finished. Try again.";
+
+/** The `process_source` job was given up (it kept dying mid-run): the Source fails so the learner can retry it. */
+export async function giveUpProcessingSource(deps: CoreDeps, { sourceId }: { sourceId: string }): Promise<void> {
+  await deps.db
+    .update(sources)
+    .set({ status: "failed", failureReason: STOPPED_PROCESSING_REASON })
+    .where(and(eq(sources.id, sourceId), ne(sources.status, "ready")));
 }
 
 async function setStatus(deps: CoreDeps, sourceId: string, status: SourceStatus) {

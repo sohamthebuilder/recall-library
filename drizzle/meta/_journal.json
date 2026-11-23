@@ -85,6 +85,13 @@
       "when": 1795415877141,
       "tag": "0011_suggested_edits",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795417140759,
+      "tag": "0012_suggested_edit_failures",
+      "breakpoints": true
     }
   ]
 }

@@ -206,6 +206,7 @@ export async function switchExplainerForm(topicId: string, _prev: FormState, for
   await requireLearner();
   const form = formData.get("form") === "animation" ? "animation" : "infographic";
   const state = await attempt(() => getCore().switchExplainerForm({ topicId, form }));
+  if (state.ok) runJobsAfterResponse();
   revalidatePath(`/topics/${topicId}`);
   return state;
 }
@@ -278,10 +279,14 @@ export async function editExplainerByInstruction(
   return { ...state, previousVersionId: state.ok ? baseVersionId : null, newVersionId };
 }
 
-/** Make an earlier Explainer version current again (the core saves it as a new version). */
-export async function restoreExplainerVersion(topicId: string, versionId: string): Promise<void> {
+/**
+ * Make an earlier Explainer version current again (the core saves it as a new version). On
+ * success it goes to the Topic; a refusal comes back as the form's error.
+ */
+export async function restoreExplainerVersion(topicId: string, versionId: string, _prev: FormState): Promise<FormState> {
   await requireLearner();
-  await attempt(() => getCore().restoreExplainerVersion({ topicId, versionId }));
+  const state = await attempt(() => getCore().restoreExplainerVersion({ topicId, versionId }));
+  if (!state.ok) return state;
   runJobsAfterResponse();
   revalidatePath(`/topics/${topicId}`);
   redirect(`/topics/${topicId}`);
@@ -388,6 +393,15 @@ export async function acceptSuggestedEdit(topicId: string, suggestedEditId: stri
   if (state.ok) runJobsAfterResponse();
   revalidatePath(`/topics/${topicId}`);
   revalidatePath("/topics");
+  return state;
+}
+
+/** Check a Source again for Suggested Edits after the AI failed to (queues the check). */
+export async function retrySuggestedEdits(topicId: string, sourceId: string, _prev: FormState): Promise<FormState> {
+  await requireLearner();
+  const state = await attempt(() => getCore().retrySuggestedEdits({ topicId, sourceId }));
+  if (state.ok) runJobsAfterResponse();
+  revalidatePath(`/topics/${topicId}`);
   return state;
 }
 
