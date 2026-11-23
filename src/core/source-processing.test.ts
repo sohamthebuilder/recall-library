@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createTestCore } from "../../test/harness";
 import { ValidationError } from "./errors";
 
@@ -130,5 +130,32 @@ describe("when processing fails", () => {
     await core.retrySource(note.id);
     await core.runJobs();
     expect((await core.source(note.id)).status).toBe("ready");
+  });
+});
+
+describe("a job whose process died while running it", () => {
+  it("is run again a few times, then given up: the Source fails with a reason the learner can read", async () => {
+    const t = await createTestCore({ now: new Date("2026-03-01T10:00:00Z") });
+    const url = "https://blog.example.com/never-answers";
+    t.contentFetcher.scriptArticleHang(url);
+    const source = await t.core.addSource({ kind: "url", url });
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      void t.core.runJobs({ maxJobs: 1 }); // Never finishes: its process "died" mid-job.
+      await vi.waitFor(() => expect(t.contentFetcher.hungFetches).toBe(attempt));
+      t.clock.set(new Date(t.clock.now().getTime() + 16 * 60 * 1000));
+    }
+    await t.core.runJobs({ maxJobs: 1 });
+
+    expect(t.contentFetcher.hungFetches).toBe(3);
+    expect(await t.core.source(source.id)).toMatchObject({
+      status: "failed",
+      failureReason: "Processing this Source kept stopping before it finished. Try again.",
+    });
+    // Retrying starts over with a fresh job.
+    t.contentFetcher.scriptArticle(url, { title: "Back", text: "It answers now." });
+    await t.core.retrySource(source.id);
+    await t.core.runJobs();
+    expect((await t.core.source(source.id)).status).toBe("ready");
   });
 });

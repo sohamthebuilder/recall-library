@@ -260,6 +260,25 @@ export const suggestedEdits = pgTable(
   (t) => [index("suggested_edits_topic_status").on(t.topicId, t.status)],
 );
 
+/**
+ * A linked Source whose check for Suggested Edits failed (the AI call failed). Shown on the Topic
+ * with a Retry; removed when the check is retried or succeeds. One row per Topic and Source.
+ */
+export const suggestedEditFailures = pgTable(
+  "suggested_edit_failures",
+  {
+    topicId: uuid("topic_id")
+      .notNull()
+      .references(() => topics.id, { onDelete: "cascade" }),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "cascade" }),
+    reason: text("reason").notNull(),
+    failedAt: timestamp("failed_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.topicId, t.sourceId] })],
+);
+
 export const recallPromptKind = pgEnum("recall_prompt_kind", ["explain", "compare", "apply", "why"]);
 /** Who wrote a Recall Prompt's current wording. Reconciliation (#17) only touches `generated` ones. */
 export const recallPromptOrigin = pgEnum("recall_prompt_origin", ["generated", "learner_edited", "learner_written"]);

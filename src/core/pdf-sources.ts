@@ -214,7 +214,33 @@ export async function proposeChapterTopics(deps: CoreDeps, { sourceId }: { sourc
   }
 }
 
-const UNEXPECTED_CHAPTER_FAILURE = "Something went wrong while proposing Topics from this chapter. Select it again.";
+export const STOPPED_CHAPTER_REASON = "Proposing Topics from this chapter kept stopping before it finished. Select it again.";
+
+/**
+ * The `propose_chapter_topics` job was given up (it kept dying mid-run). The chapters it was
+ * still working on fail with a reason the learner can read and can be selected again; the PDF
+ * itself was read fine, so it goes back to ready rather than failed (retrying it would re-read it).
+ */
+export async function giveUpProposingChapterTopics(deps: CoreDeps, { sourceId }: { sourceId: string }): Promise<void> {
+  await deps.db.transaction(async (tx) => {
+    await tx
+      .update(sourceChapters)
+      .set({ selectedAt: null, failureReason: STOPPED_CHAPTER_REASON })
+      .where(
+        and(
+          eq(sourceChapters.sourceId, sourceId),
+          isNotNull(sourceChapters.selectedAt),
+          isNull(sourceChapters.topicsProposedAt),
+        ),
+      );
+    await tx
+      .update(sources)
+      .set({ status: "ready" })
+      .where(and(eq(sources.id, sourceId), eq(sources.status, "proposing_topics")));
+  });
+}
+
+const UNEXPECTED_CHAPTER_FAILURE ="Something went wrong while proposing Topics from this chapter. Select it again.";
 
 /**
  * Propose Topics from each selected chapter not yet proposed from, in order. A chapter that

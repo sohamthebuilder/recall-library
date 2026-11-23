@@ -1,12 +1,23 @@
-import { and, asc, cosineDistance, count, eq, isNotNull } from "drizzle-orm";
-import { explainers, explainerVersions, sourceChunks, sources, suggestedEdits, topicSources, topics } from "@/db/schema";
+import { and, asc, cosineDistance, count, eq, isNotNull, sql } from "drizzle-orm";
+import {
+  explainers,
+  explainerVersions,
+  sourceChunks,
+  sources,
+  suggestedEditFailures,
+  suggestedEdits,
+  topicSources,
+  topics,
+} from "@/db/schema";
 import type { DbOrTx } from "@/db/types";
 import type { CoreDeps } from "./core";
 import { NotFoundError, ValidationError } from "./errors";
 import { type ExplainerCitation, type ExplainerContent, parseStoredContent } from "./explainer-content";
-import { type CitedPassage, citedPassages, explainerRow, saveExplainerVersion } from "./explainers";
+import { type CitedPassage, citedPassages, saveExplainerVersion } from "./explainers";
 import { enqueueJob } from "./jobs";
-import type { SuggestedEditDraft } from "./ports/ai";
+import { AiError, type SuggestedEditDraft } from "./ports/ai";
+
+export const UNEXPECTED_SUGGESTION_FAILURE = "Something went wrong while checking this Source for Suggested Edits.";
 
 /**
  * Suggested Edits (#20, ADR 0001). Once a Topic has an Explainer it is never regenerated: a
@@ -76,7 +87,8 @@ async function hasSuggestionsFrom(db: DbOrTx, topicId: string, sourceId: string)
  * Ask the AI what the newly linked Source adds to or contradicts in the Topic's Explainer, and
  * keep each usable answer as a pending Suggested Edit. Never saves an Explainer version.
  * Does nothing if the Source has no text yet (it is queued again once it has) or already
- * brought Suggested Edits to this Topic. An AiError fails the job (kept in jobs.last_error).
+ * brought Suggested Edits to this Topic. If the AI call fails, the failure is recorded for the
+ * Topic page (with a Retry, see retrySuggestedEdits) and the job fails (details in jobs.last_error).
  */
 export async function suggestEdits(deps: CoreDeps, link: { topicId: string; sourceId: string }): Promise<void> {
   const [row] = await deps.db
@@ -99,12 +111,27 @@ export async function suggestEdits(deps: CoreDeps, link: { topicId: string; sour
 
   const [version] = await deps.db.select().from(explainerVersions).where(eq(explainerVersions.id, row.versionId));
   const content = parseStoredContent(version!.content);
-  const drafts = await deps.ai.suggestEdits({
-    topic: { name: row.topic.name, description: row.topic.description },
-    explainer: content,
-    source: { title: row.source.title },
-    passages: passages.map((p) => ({ ...p, sourceTitle: row.source.title })),
-  });
+  let drafts: unknown;
+  try {
+    drafts = await deps.ai.suggestEdits({
+      topic: { name: row.topic.name, description: row.topic.description },
+      explainer: content,
+      source: { title: row.source.title },
+      passages: passages.map((p) => ({ ...p, sourceTitle: row.source.title })),
+    });
+  } catch (e) {
+    // Shown on the Topic with a Retry; the job still fails so the details stay in jobs.last_error.
+    const reason = e instanceof AiError ? e.message : UNEXPECTED_SUGGESTION_FAILURE;
+    const failedAt = deps.clock.now();
+    await deps.db
+      .insert(suggestedEditFailures)
+      .values({ topicId: link.topicId, sourceId: link.sourceId, reason, failedAt })
+      .onConflictDoUpdate({ target: [suggestedEditFailures.topicId, suggestedEditFailures.sourceId], set: { reason, failedAt } });
+    throw e;
+  }
+  await deps.db
+    .delete(suggestedEditFailures)
+    .where(and(eq(suggestedEditFailures.topicId, link.topicId), eq(suggestedEditFailures.sourceId, link.sourceId)));
 
   const chunkIds = new Set(passages.map((p) => p.chunkId));
   const usable = (Array.isArray(drafts) ? drafts : []).flatMap((d) => {
@@ -151,10 +178,15 @@ function usableDraft(draft: unknown, content: ExplainerContent, chunkIds: Set<st
 // ---------------------------------------------------------------------------------------
 // Reading
 
-/** The Topic's pending Suggested Edits, oldest first. */
-export async function listSuggestedEdits(deps: CoreDeps, topicId: string): Promise<SuggestedEdit[]> {
-  const [topic] = await deps.db.select({ id: topics.id }).from(topics).where(eq(topics.id, topicId));
+async function topicIdOf(db: DbOrTx, topicId: string): Promise<string> {
+  const [topic] = await db.select({ id: topics.id }).from(topics).where(sql`${topics.id}::text = ${topicId}`);
   if (!topic) throw new NotFoundError("That Topic no longer exists.");
+  return topic.id;
+}
+
+/** The Topic's pending Suggested Edits, oldest first. */
+export async function listSuggestedEdits(deps: CoreDeps, topicIdInput: string): Promise<SuggestedEdit[]> {
+  const topicId = await topicIdOf(deps.db, topicIdInput);
   const rows = await deps.db
     .select({ edit: suggestedEdits, sourceTitle: sources.title })
     .from(suggestedEdits)
@@ -183,6 +215,41 @@ export async function listSuggestedEdits(deps: CoreDeps, topicId: string): Promi
   return out;
 }
 
+export interface SuggestedEditFailure {
+  /** The linked Source that could not be checked for Suggested Edits. */
+  source: { id: string; title: string | null };
+  reason: string;
+}
+
+/** Linked Sources whose check for Suggested Edits failed, oldest first. Each can be retried. */
+export async function listSuggestedEditFailures(deps: CoreDeps, topicIdInput: string): Promise<SuggestedEditFailure[]> {
+  const topicId = await topicIdOf(deps.db, topicIdInput);
+  const rows = await deps.db
+    .select({ sourceId: sources.id, title: sources.title, reason: suggestedEditFailures.reason })
+    .from(suggestedEditFailures)
+    .innerJoin(sources, eq(sources.id, suggestedEditFailures.sourceId))
+    .where(eq(suggestedEditFailures.topicId, topicId))
+    .orderBy(asc(suggestedEditFailures.failedAt));
+  return rows.map((r) => ({ source: { id: r.sourceId, title: r.title }, reason: r.reason }));
+}
+
+/** Check a Source again for Suggested Edits after the check failed (queues the job again). */
+export async function retrySuggestedEdits(deps: CoreDeps, link: { topicId: string; sourceId: string }): Promise<void> {
+  await deps.db.transaction(async (tx) => {
+    const [failure] = await tx
+      .delete(suggestedEditFailures)
+      .where(
+        and(
+          sql`${suggestedEditFailures.topicId}::text = ${link.topicId}`,
+          sql`${suggestedEditFailures.sourceId}::text = ${link.sourceId}`,
+        ),
+      )
+      .returning();
+    if (!failure) throw new ValidationError("That Source's check for Suggested Edits didn't fail, so there is nothing to retry.");
+    await queueSuggestedEdits(tx, deps.clock.now(), { topicId: failure.topicId, sourceId: failure.sourceId });
+  });
+}
+
 /** How many pending Suggested Edits each Topic has, for Topics that have any. Flags them in the Topic list. */
 export async function pendingSuggestedEditCounts(deps: CoreDeps): Promise<Record<string, number>> {
   const rows = await deps.db
@@ -203,57 +270,61 @@ export async function pendingSuggestedEditCounts(deps: CoreDeps): Promise<Record
  * Recall Prompt reconciliation. Refused if the key point it rewrites has since been removed.
  */
 export async function acceptSuggestedEdit(deps: CoreDeps, suggestedEditId: string): Promise<void> {
-  const edit = await pendingEdit(deps, suggestedEditId);
-  const explainer = await explainerRow(deps.db, edit.topicId);
-  const current = await currentContentOf(deps.db, edit.topicId);
-  if (!explainer || !current) throw new ValidationError("The Explainer is not ready yet.");
-  const { content } = current;
-
-  let keyPointId = edit.keyPointId;
-  let keyPoints;
-  if (keyPointId === null) {
-    keyPointId = freshKeyPointId(content);
-    keyPoints = [...content.keyPoints, { id: keyPointId, text: edit.text, citations: edit.citations }];
-  } else {
-    const target = content.keyPoints.find((k) => k.id === keyPointId);
-    if (!target) {
-      throw new ValidationError("The key point this Suggested Edit changes is no longer in your Explainer. Reject it instead.");
-    }
-    keyPoints = content.keyPoints.map((k) =>
-      k.id === keyPointId ? { ...k, text: edit.text, citations: mergeCitations(k.citations, edit.citations) } : k,
-    );
-  }
-
   const now = deps.clock.now();
   await deps.db.transaction(async (tx) => {
+    // Deciding is a conditional update: of two accepts sent at once, only one finds it pending.
+    const edit = await decide(tx, suggestedEditId, "accepted", now);
+    // Lock the Explainer so the edit applies to the content as it is now, not a stale read.
+    const [explainer] = await tx.select().from(explainers).where(eq(explainers.topicId, edit.topicId)).for("update");
+    const current = await currentContentOf(tx, edit.topicId);
+    if (!explainer || !current) throw new ValidationError("The Explainer is not ready yet.");
+    const { content } = current;
+
+    let keyPointId = edit.keyPointId;
+    let keyPoints;
+    if (keyPointId === null) {
+      keyPointId = freshKeyPointId(content);
+      keyPoints = [...content.keyPoints, { id: keyPointId, text: edit.text, citations: edit.citations }];
+    } else {
+      const target = content.keyPoints.find((k) => k.id === keyPointId);
+      if (!target) {
+        throw new ValidationError("The key point this Suggested Edit changes is no longer in your Explainer. Reject it instead.");
+      }
+      keyPoints = content.keyPoints.map((k) =>
+        k.id === keyPointId ? { ...k, text: edit.text, citations: mergeCitations(k.citations, edit.citations) } : k,
+      );
+    }
+
     await saveExplainerVersion(tx, now, {
       explainerId: explainer.id,
       content: { ...content, keyPoints },
       cause: "suggested_edit",
       causeDetail: { suggestedEditId: edit.id, keyPointId },
     });
-    await tx
-      .update(suggestedEdits)
-      .set({ status: "accepted", decidedAt: now })
-      .where(eq(suggestedEdits.id, edit.id));
   });
 }
 
 /** Turn down a pending Suggested Edit. The Explainer does not change. */
 export async function rejectSuggestedEdit(deps: CoreDeps, suggestedEditId: string): Promise<void> {
-  const edit = await pendingEdit(deps, suggestedEditId);
-  await deps.db
-    .update(suggestedEdits)
-    .set({ status: "rejected", decidedAt: deps.clock.now() })
-    .where(eq(suggestedEdits.id, edit.id));
+  await deps.db.transaction(async (tx) => {
+    await decide(tx, suggestedEditId, "rejected", deps.clock.now());
+  });
 }
 
-async function pendingEdit(deps: CoreDeps, id: string) {
-  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const [edit] = UUID.test(id) ? await deps.db.select().from(suggestedEdits).where(eq(suggestedEdits.id, id)) : [];
-  if (!edit) throw new NotFoundError("That Suggested Edit no longer exists.");
-  if (edit.status !== "pending") throw new ValidationError(`That Suggested Edit was already ${edit.status}.`);
-  return edit;
+/** Mark a pending Suggested Edit decided, or throw: NotFoundError if unknown, ValidationError if already decided. */
+async function decide(tx: DbOrTx, id: string, status: "accepted" | "rejected", now: Date) {
+  const [edit] = await tx
+    .update(suggestedEdits)
+    .set({ status, decidedAt: now })
+    .where(and(sql`${suggestedEdits.id}::text = ${id}`, eq(suggestedEdits.status, "pending")))
+    .returning();
+  if (edit) return edit;
+  const [existing] = await tx
+    .select({ status: suggestedEdits.status })
+    .from(suggestedEdits)
+    .where(sql`${suggestedEdits.id}::text = ${id}`);
+  if (!existing) throw new NotFoundError("That Suggested Edit no longer exists.");
+  throw new ValidationError(`That Suggested Edit was already ${existing.status}.`);
 }
 
 async function currentContentOf(db: DbOrTx, topicId: string) {

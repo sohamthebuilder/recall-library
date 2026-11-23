@@ -11,8 +11,12 @@ export class FakeContentFetcher implements ContentFetcher {
   private readonly articles = new Map<string, FetchedArticle | { error: string }>();
   private readonly pdfs = new Map<string, ExtractedPdf | { error: string }>();
   private readonly transcripts = new Map<string, YouTubeTranscript | null | { error: string }>();
+  private readonly hanging = new Set<string>();
+  /** How many fetches of a hanging URL have started (none of them ever finishes). */
+  hungFetches = 0;
 
   scriptArticle(url: string, article: FetchedArticle): this {
+    this.hanging.delete(url);
     this.articles.set(url, article);
     return this;
   }
@@ -22,7 +26,17 @@ export class FakeContentFetcher implements ContentFetcher {
     return this;
   }
 
+  /** Make fetching this URL never finish, as if the process running the job died mid-fetch. */
+  scriptArticleHang(url: string): this {
+    this.hanging.add(url);
+    return this;
+  }
+
   async fetchArticle(url: string): Promise<FetchedArticle> {
+    if (this.hanging.has(url)) {
+      this.hungFetches++;
+      return new Promise<never>(() => {});
+    }
     const scripted = this.articles.get(url);
     if (!scripted) throw new ContentFetchError(`FakeContentFetcher: no article scripted for ${url}`);
     if ("error" in scripted) throw new ContentFetchError(scripted.error);

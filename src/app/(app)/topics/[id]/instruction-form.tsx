@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { editExplainerByInstruction, type InstructionState, restoreExplainerVersion } from "../../actions";
+import { editExplainerByInstruction, type InstructionState } from "../../actions";
+import { RestoreVersionButton } from "./restore-version-button";
 
 const initialState: InstructionState = { error: null, ok: false, previousVersionId: null, newVersionId: null };
 
@@ -41,14 +42,17 @@ export function InstructionForm({ topicId, versionId }: { topicId: string; versi
         </p>
       ) : null}
       {state.ok && state.previousVersionId && state.newVersionId === versionId ? (
-        <form action={restoreExplainerVersion.bind(null, topicId, state.previousVersionId)} className="instruction-undo">
+        <RestoreVersionButton
+          topicId={topicId}
+          versionId={state.previousVersionId}
+          label="Restore the previous version"
+          className="instruction-undo"
+          buttonClassName="button-link"
+        >
           <span className="muted" aria-live="polite">
             Explainer changed.
           </span>{" "}
-          <button type="submit" className="button-link">
-            Restore the previous version
-          </button>
-        </form>
+        </RestoreVersionButton>
       ) : null}
     </div>
   );

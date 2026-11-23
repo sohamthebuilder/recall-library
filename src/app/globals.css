@@ -1057,6 +1057,22 @@ a.due-start {
   margin-bottom: 16px;
 }
 
+.suggested-edit-failures {
+  margin-bottom: 16px;
+}
+
+.suggested-edit-failure-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.suggested-edit-failure-list p {
+  margin: 0 0 6px;
+}
+
 .suggested-edits h2 {
   margin: 0 0 4px;
 }

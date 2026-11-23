@@ -183,6 +183,42 @@ describe("overruling the grade", () => {
 
     await expect(t.core.overruleGrade({ reviewId: first.id, rating: "again" })).rejects.toThrow(ValidationError);
   });
+
+  it("is refused once the prompt is deleted or paused, and the schedule is left alone", async () => {
+    const t = await createTestCore({ now: new Date("2026-03-01T10:00:00Z") });
+    const { topic, prompts } = await topicWithExplainer(t);
+    const [deleted, paused] = prompts;
+    const deletedReview = await t.core.submitReview({ promptId: deleted!.id, answer: "One." });
+    const pausedReview = await t.core.submitReview({ promptId: paused!.id, answer: "Two." });
+    await t.core.deleteRecallPrompt(deleted!.id);
+    await t.core.suspendRecallPrompt(paused!.id);
+    const pausedBefore = (await t.core.recallPrompts(topic.id)).find((p) => p.id === paused!.id);
+
+    await expect(t.core.overruleGrade({ reviewId: deletedReview.id, rating: "again" })).rejects.toThrow(ValidationError);
+    await expect(t.core.overruleGrade({ reviewId: pausedReview.id, rating: "again" })).rejects.toThrow(ValidationError);
+
+    expect((await t.core.recallPrompts(topic.id)).find((p) => p.id === paused!.id)).toEqual(pausedBefore);
+    expect((await t.core.topicReviews(topic.id)).map((r) => [r.rating, r.overruled])).toEqual([
+      ["good", false],
+      ["good", false],
+    ]);
+  });
+});
+
+describe("submitting twice", () => {
+  it("the same answer sent twice in a session records one Review and reschedules once", async () => {
+    const t = await createTestCore({ now: new Date("2026-03-01T10:00:00Z") });
+    const { topics } = await topicsWithPrompts(t, { Kafka: ["K1", "K2"] });
+    const session = (await t.core.startReview())!;
+    const once = { sessionId: session.id, promptId: session.current.id, answer: "An answer." };
+
+    const results = await Promise.allSettled([t.core.submitReview(once), t.core.submitReview(once)]);
+
+    expect(results.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect(results.find((r) => r.status === "rejected")).toMatchObject({ reason: expect.any(ValidationError) });
+    expect(await t.core.topicReviews(topics.Kafka!)).toHaveLength(1);
+    expect(await t.core.reviewSession()).toMatchObject({ done: 1, remaining: 1, current: { question: "K2" } });
+  });
 });
 
 describe("a Review session", () => {

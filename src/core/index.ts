@@ -33,7 +33,7 @@ export type {
   OpenedExplainerVersion,
 } from "./explainer-editing";
 export type { ImportTopicsResult } from "./topic-import";
-export type { SuggestedEdit, SuggestedEditKind } from "./suggested-edits";
+export type { SuggestedEdit, SuggestedEditFailure, SuggestedEditKind } from "./suggested-edits";
 export type {
   AddRecallPromptInput,
   EditRecallPromptInput,

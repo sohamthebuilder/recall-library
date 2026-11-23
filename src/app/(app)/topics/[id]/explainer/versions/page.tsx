@@ -2,9 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { type ExplainerVersionSummary, NotFoundError } from "@/core";
 import { getCore } from "@/server/core";
-import { restoreExplainerVersion } from "../../../../actions";
 import { ExplainerDiagramView } from "../../explainer-diagram";
 import { KeyPoints } from "../../key-points";
+import { RestoreVersionButton } from "../../restore-version-button";
 
 export const dynamic = "force-dynamic";
 
@@ -91,11 +91,12 @@ export default async function ExplainerVersionsPage({
             {opened.isCurrent ? (
               <span className="muted">This is the current version.</span>
             ) : (
-              <form action={restoreExplainerVersion.bind(null, topic.id, opened.version.id)}>
-                <button type="submit" className="primary">
-                  Restore version {opened.version.number}
-                </button>
-              </form>
+              <RestoreVersionButton
+                topicId={topic.id}
+                versionId={opened.version.id}
+                label={`Restore version ${opened.version.number}`}
+                buttonClassName="primary"
+              />
             )}
           </div>
           {content.analogy ? (

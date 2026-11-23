@@ -227,8 +227,20 @@ export async function submitReview(deps: CoreDeps, input: SubmitReviewInput): Pr
   const keyPointIds = new Set(explainer?.keyPoints.map((k) => k.id) ?? []);
 
   const now = deps.clock.now();
-  const before = memoryStateOf(prompt);
   const id = await deps.db.transaction(async (tx) => {
+    // Lock the prompt so a double submit waits here, then read its schedule as it is now.
+    const [locked] = await tx.select().from(recallPrompts).where(eq(recallPrompts.id, prompt.id)).for("update");
+    if (!locked || locked.deletedAt) throw new NotFoundError("That Recall Prompt no longer exists.");
+    if (locked.state !== "active") throw new ValidationError("This Recall Prompt is paused. Resume it to review it.");
+    if (input.sessionId !== undefined) {
+      const [already] = await tx
+        .select({ id: reviews.id })
+        .from(reviews)
+        .where(and(eq(reviews.promptId, prompt.id), sql`${reviews.sessionId}::text = ${input.sessionId}`))
+        .limit(1);
+      if (already) throw new ValidationError("You have already answered this Recall Prompt in this session.");
+    }
+    const before = memoryStateOf(locked);
     await tx.update(recallPrompts).set(reschedule(kind, before, grade.rating, now)).where(eq(recallPrompts.id, prompt.id));
     const [row] = await tx
       .insert(reviews)
@@ -261,7 +273,8 @@ export interface OverruleGradeInput {
 /**
  * The learner replaces the Review's rating. The prompt is rescheduled from its memory state
  * before that Review, as of when it happened, so the final rating alone decides the outcome.
- * Only a prompt's latest Review can be overruled (later Reviews were scheduled from it).
+ * Only a prompt's latest Review can be overruled (later Reviews were scheduled from it), and only
+ * while the prompt is active: a deleted, paused or retired prompt's grade is refused (ValidationError).
  */
 export async function overruleGrade(deps: CoreDeps, input: OverruleGradeInput): Promise<Review> {
   const rating = z.enum(["again", "hard", "good", "easy"]).safeParse(input.rating);
@@ -276,6 +289,13 @@ export async function overruleGrade(deps: CoreDeps, input: OverruleGradeInput): 
       .orderBy(desc(reviews.reviewedAt), desc(reviews.id))
       .limit(1);
     if (latest!.id !== review.id) throw new ValidationError("Only the latest Review of a prompt can be overruled.");
+    // Rescheduling a deleted or paused prompt would bring it back on its own; refuse instead
+    // (the learner can resume a paused prompt, then change the grade).
+    const [prompt] = await tx.select().from(recallPrompts).where(eq(recallPrompts.id, review.promptId)).for("update");
+    if (!prompt || prompt.deletedAt) throw new ValidationError("That Recall Prompt was deleted, so its grade can't be changed.");
+    if (prompt.state !== "active") {
+      throw new ValidationError("This Recall Prompt is paused or retired. Resume it to change its grade.");
+    }
 
     const after = reschedule(review.kind, parseMemoryState(review.cardBefore), rating.data, review.reviewedAt);
     await tx.update(recallPrompts).set(after).where(eq(recallPrompts.id, review.promptId));
