@@ -50,6 +50,8 @@ export interface ExplainerVersionSummary {
   createdAt: Date;
   /** For a `restore`: the number of the version that was restored. */
   restoredFrom: number | null;
+  /** For an `instruction`: what the learner asked for (absent for other causes). */
+  instruction?: string;
 }
 
 export interface ExplainerVersion extends ExplainerVersionSummary {
@@ -389,7 +391,7 @@ export async function listExplainerVersions(deps: CoreDeps, topicId: string): Pr
     .innerJoin(explainers, eq(explainers.id, explainerVersions.explainerId))
     .where(eq(explainers.topicId, topicId))
     .orderBy(desc(explainerVersions.number))
-    .then((rows) => rows.map(({ causeDetail, ...row }) => ({ ...row, restoredFrom: restoredFrom(causeDetail) })));
+    .then((rows) => rows.map(({ causeDetail, ...row }) => ({ ...row, restoredFrom: restoredFrom(causeDetail), instruction: instructionOf(causeDetail) })));
 }
 
 /**
@@ -453,6 +455,7 @@ export function toVersion(row: typeof explainerVersions.$inferSelect): Explainer
     cause: row.cause,
     createdAt: row.createdAt,
     restoredFrom: restoredFrom(row.causeDetail),
+    instruction: instructionOf(row.causeDetail),
     content: parseStoredContent(row.content),
   };
 }
@@ -460,4 +463,9 @@ export function toVersion(row: typeof explainerVersions.$inferSelect): Explainer
 function restoredFrom(causeDetail: unknown): number | null {
   const n = (causeDetail as { restoredFrom?: unknown } | null)?.restoredFrom;
   return typeof n === "number" ? n : null;
+}
+
+function instructionOf(causeDetail: unknown): string | undefined {
+  const text = (causeDetail as { instruction?: unknown } | null)?.instruction;
+  return typeof text === "string" ? text : undefined;
 }

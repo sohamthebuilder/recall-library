@@ -3,6 +3,7 @@ import {
   AiError,
   type AiAdapter,
   type AnswerGrade,
+  type ApplyExplainerInstructionInput,
   type ConfirmTopicMatchInput,
   type GradeAnswerInput,
   type GenerateExplainerInput,
@@ -36,6 +37,8 @@ type Scripted<T> = T | (() => T | Promise<T>);
  *   (scriptRecallPrompts / scriptRecallPromptsFailure, keyed by Topic name)
  * - reconcileRecallPrompts: keep every prompt, add none (scriptRecallPromptReconciliation /
  *   scriptRecallPromptReconciliationFailure, keyed by Topic name)
+ * - applyExplainerInstruction: the same Explainer with the instruction as its analogy
+ *   (scriptExplainerInstruction / scriptExplainerInstructionFailure, keyed by Topic name)
  */
 export class FakeAi implements AiAdapter {
   private readonly scriptedEmbeddings = new Map<string, number[]>();
@@ -52,6 +55,12 @@ export class FakeAi implements AiAdapter {
 
   private readonly scriptedReconciliations = new Map<string, ReconciliationScript>();
   private readonly reconciliationFailures = new Map<string, string[]>();
+
+  private readonly scriptedInstructions = new Map<string, InstructionScript>();
+  private readonly instructionFailures = new Map<string, string[]>();
+
+  /** Every applyExplainerInstruction call, in order. */
+  readonly instructionRequests: ApplyExplainerInstructionInput[] = [];
 
   /** Every reconcileRecallPrompts call, in order. */
   readonly reconciliationRequests: ReconcileRecallPromptsInput[] = [];
@@ -254,6 +263,30 @@ export class FakeAi implements AiAdapter {
     return (typeof scripted === "function" ? await scripted(input) : scripted) as RecallPromptReconciliation;
   }
 
+  /**
+   * Make `applyExplainerInstruction` for the Topic with this name return this draft (or what the
+   * function builds from the request). Need not be valid.
+   */
+  scriptExplainerInstruction(topicName: string, result: InstructionScript): this {
+    this.scriptedInstructions.set(topicName, result);
+    return this;
+  }
+
+  /** Make the next `applyExplainerInstruction` call for this Topic fail with this reason (then it behaves as scripted). */
+  scriptExplainerInstructionFailure(topicName: string, reason: string): this {
+    this.instructionFailures.set(topicName, [...(this.instructionFailures.get(topicName) ?? []), reason]);
+    return this;
+  }
+
+  async applyExplainerInstruction(input: ApplyExplainerInstructionInput): Promise<ExplainerDraft> {
+    this.instructionRequests.push(input);
+    const failure = this.instructionFailures.get(input.topic.name)?.shift();
+    if (failure !== undefined) throw new AiError(failure);
+    const scripted = this.scriptedInstructions.get(input.topic.name);
+    if (scripted === undefined) return { ...input.explainer, analogy: input.instruction };
+    return (typeof scripted === "function" ? await scripted(input) : scripted) as ExplainerDraft;
+  }
+
   async embed(texts: string[]): Promise<number[][]> {
     return texts.map((t) => this.scriptedEmbeddings.get(t) ?? defaultEmbedding(t));
   }
@@ -281,6 +314,14 @@ export type ExplainerScript =
   | ExplainerDraft
   | Record<string, unknown>
   | ((input: GenerateExplainerInput) => ExplainerDraft | Record<string, unknown> | Promise<ExplainerDraft | Record<string, unknown>>);
+
+/** A draft, or a builder from the request. Typed loosely so tests can script invalid drafts. */
+export type InstructionScript =
+  | ExplainerDraft
+  | Record<string, unknown>
+  | ((
+      input: ApplyExplainerInstructionInput,
+    ) => ExplainerDraft | Record<string, unknown> | Promise<ExplainerDraft | Record<string, unknown>>);
 
 /** Steps, or a builder from the request. Typed loosely so tests can script invalid steps. */
 export type StepsScript =

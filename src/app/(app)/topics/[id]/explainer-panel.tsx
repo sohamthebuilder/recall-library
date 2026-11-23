@@ -5,6 +5,7 @@ import { RefreshWhileProcessing } from "../../source-status";
 import { AnimationPlayer } from "./animation-player";
 import { ExplainerDiagramView } from "./explainer-diagram";
 import { FormSwitch } from "./form-switch";
+import { InstructionForm } from "./instruction-form";
 import { KeyPoints } from "./key-points";
 
 /** The Topic's Explainer, drawn as an infographic or a step-by-step animation, or why there is none (yet). */
@@ -61,6 +62,7 @@ export function ExplainerPanel({ topicId, explainer }: { topicId: string; explai
         )}
         <KeyPoints keyPoints={content.keyPoints} passages={explainer.passages} />
       </div>
+      <InstructionForm topicId={topicId} versionId={explainer.current.id} />
       <nav className="explainer-actions source-meta" aria-label="Explainer">
         <span>Version {explainer.current.number}</span>
         <Link href={`/topics/${topicId}/explainer/edit`}>Edit text</Link>

@@ -1077,3 +1077,23 @@ a.due-start {
     opacity: 0.3;
   }
 }
+
+/* Changing the Explainer by instruction (#19) */
+.instruction {
+  margin-top: 12px;
+}
+.instruction-form {
+  display: flex;
+  gap: 8px;
+}
+.instruction-form input {
+  flex: 1;
+  min-width: 0;
+}
+.instruction .error,
+.instruction .muted {
+  margin: 6px 0 0;
+}
+.instruction-undo {
+  margin-top: 6px;
+}
