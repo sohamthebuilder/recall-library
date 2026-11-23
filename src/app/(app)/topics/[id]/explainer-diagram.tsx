@@ -1,8 +1,21 @@
-import type { ExplainerDiagram } from "@/core";
+import type { ExplainerDiagram, ExplainerStep } from "@/core";
 import { type Direction, layoutDiagram } from "./diagram-layout";
 
-/** The Explainer's diagram as SVG: left-to-right on a laptop, top-to-bottom on a phone. */
-export function ExplainerDiagramView({ diagram, title }: { diagram: ExplainerDiagram; title: string }) {
+type Highlight = ExplainerStep["highlight"];
+
+/**
+ * The Explainer's diagram as SVG: left-to-right on a laptop, top-to-bottom on a phone.
+ * With `highlight` (an animation step), those nodes and edges stand out and the rest fade.
+ */
+export function ExplainerDiagramView({
+  diagram,
+  title,
+  highlight,
+}: {
+  diagram: ExplainerDiagram;
+  title: string;
+  highlight?: Highlight;
+}) {
   if (diagram.nodes.length === 0) return null;
   const labelOf = new Map(diagram.nodes.map((n) => [n.id, n.label]));
   return (
@@ -17,8 +30,8 @@ export function ExplainerDiagramView({ diagram, title }: { diagram: ExplainerDia
           ))}
         </ul>
       ) : null}
-      <DiagramSvg diagram={diagram} direction="horizontal" title={title} />
-      <DiagramSvg diagram={diagram} direction="vertical" title={title} />
+      <DiagramSvg diagram={diagram} direction="horizontal" title={title} highlight={highlight} />
+      <DiagramSvg diagram={diagram} direction="vertical" title={title} highlight={highlight} />
       <details className="diagram-text">
         <summary>Diagram as text</summary>
         <ul>
@@ -39,9 +52,22 @@ export function ExplainerDiagramView({ diagram, title }: { diagram: ExplainerDia
   );
 }
 
-function DiagramSvg({ diagram, direction, title }: { diagram: ExplainerDiagram; direction: Direction; title: string }) {
+function DiagramSvg({
+  diagram,
+  direction,
+  title,
+  highlight,
+}: {
+  diagram: ExplainerDiagram;
+  direction: Direction;
+  title: string;
+  highlight?: Highlight;
+}) {
   const layout = layoutDiagram(diagram, direction);
   const marker = `arrow-${direction}`;
+  const nodeOn = new Set(highlight?.nodeIds ?? []);
+  const edgeOn = new Set(highlight?.edgeIds ?? []);
+  const state = (on: boolean) => (highlight ? (on ? " is-highlighted" : " is-dimmed") : "");
   return (
     <svg
       className={`diagram-svg diagram-${direction}`}
@@ -56,10 +82,13 @@ function DiagramSvg({ diagram, direction, title }: { diagram: ExplainerDiagram; 
         </marker>
       </defs>
       {layout.edges.map((e) => (
-        <path key={e.id} d={e.path} className="diagram-edge" markerEnd={`url(#${marker})`} />
+        <path key={e.id} d={e.path} className={`diagram-edge${state(edgeOn.has(e.id))}`} markerEnd={`url(#${marker})`} />
       ))}
       {layout.nodes.map((n) => (
-        <g key={n.id} className={n.groupIndex >= 0 ? `group-${n.groupIndex % 6}` : "group-none"}>
+        <g
+          key={n.id}
+          className={`${n.groupIndex >= 0 ? `group-${n.groupIndex % 6}` : "group-none"}${state(nodeOn.has(n.id))}`}
+        >
           <rect x={n.x} y={n.y} width={n.width} height={n.height} rx={8} className="diagram-node" />
           <text x={n.x + n.width / 2} y={n.y + 14 + 13} textAnchor="middle" className="diagram-node-label">
             {n.lines.map((line, i) => (
@@ -72,7 +101,13 @@ function DiagramSvg({ diagram, direction, title }: { diagram: ExplainerDiagram; 
       ))}
       {layout.edges.map((e) =>
         e.label ? (
-          <text key={e.id} x={e.labelX} y={e.labelY - 4} textAnchor="middle" className="diagram-edge-label">
+          <text
+            key={e.id}
+            x={e.labelX}
+            y={e.labelY - 4}
+            textAnchor="middle"
+            className={`diagram-edge-label${state(edgeOn.has(e.id))}`}
+          >
             {e.label}
           </text>
         ) : null,

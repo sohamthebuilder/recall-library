@@ -35,7 +35,10 @@ function contentSchema<C extends z.ZodType>(citation: C) {
         nodes: z.array(z.object({ id, label: shortText, groupId: id.nullable() })).max(30),
         edges: z.array(z.object({ id, from: id, to: id, label: shortText.nullable() })).max(60),
       }),
-      /** Animation only: each step highlights some diagram nodes/edges with a caption. Empty for an infographic. */
+      /**
+       * The animation's steps: each highlights some diagram nodes/edges with a caption. Shown only
+       * in the animation form (which needs >= 1), but kept on an infographic so switching back is free.
+       */
       steps: z
         .array(
           z.object({

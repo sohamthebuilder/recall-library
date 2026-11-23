@@ -2,10 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { citationUrl, isSourceProcessing, NotFoundError } from "@/core";
 import { getCore } from "@/server/core";
-import { retrySource } from "../../actions";
+import { deleteSource, retrySource } from "../../actions";
 import { SourceMeta, sourceDisplayTitle } from "../../source-meta";
 import { RefreshWhileProcessing, StatusBadge } from "../../source-status";
 import { ChapterSelection } from "./chapter-selection";
+import { DeleteSourceButton } from "./delete-source-button";
 import { ProposalCard } from "./proposal-card";
 
 export const dynamic = "force-dynamic";
@@ -28,9 +29,10 @@ export default async function SourcePage({ params }: { params: Promise<{ id: str
     if (e instanceof NotFoundError) notFound();
     throw e;
   }
-  const [proposals, topics, chunks, chapters] = await Promise.all([
+  const [proposals, topics, citingExplainers, chunks, chapters] = await Promise.all([
     core.topicProposals(id),
     core.topics(),
+    core.explainersCitingSource(id),
     source.kind === "youtube" ? core.sourceChunks(id) : Promise.resolve([]),
     source.kind === "pdf" ? core.sourceChapters(id) : Promise.resolve([]),
   ]);
@@ -48,8 +50,11 @@ export default async function SourcePage({ params }: { params: Promise<{ id: str
           <h2 id="source-title">{sourceDisplayTitle(source)}</h2>
           <StatusBadge status={source.status} />
         </div>
-        <div style={{ marginBottom: 12 }}>
+        <div className="row-between" style={{ marginBottom: 12 }}>
           <SourceMeta source={source} />
+          <form action={deleteSource.bind(null, source.id)}>
+            <DeleteSourceButton name={sourceDisplayTitle(source)} citingExplainers={citingExplainers} />
+          </form>
         </div>
         {source.status === "failed" ? (
           <form action={retrySource.bind(null, source.id)}>

@@ -1,6 +1,13 @@
 import type { Db } from "@/db/types";
 import { chunksOfSource, similarChunks } from "./chunks";
-import { getExplainer, listExplainerVersions, retryExplainer } from "./explainers";
+import {
+  countExplainersCitingSource,
+  getExplainer,
+  listExplainerVersions,
+  retryExplainer,
+  type SwitchExplainerFormInput,
+  switchExplainerForm,
+} from "./explainers";
 import { jobHandlers } from "./job-handlers";
 import { runJobs, type RunJobsOptions } from "./jobs";
 import type { AiAdapter } from "./ports/ai";
@@ -8,7 +15,8 @@ import type { Clock } from "./ports/clock";
 import type { ContentFetcher } from "./ports/content-fetcher";
 import type { FileStore } from "./ports/file-store";
 import { chaptersOfSource, selectChapters } from "./pdf-sources";
-import { addSource, getSource, library, retrySource } from "./sources";
+import { addLink } from "./quick-add";
+import { addSource, deleteSource, getSource, library, retrySource } from "./sources";
 import { type FindTopicsInput, findTopics, listTags, tagTopic, untagTopic } from "./tags";
 import { importTopics, linkSourceByHand } from "./topic-import";
 import {
@@ -40,9 +48,15 @@ export function createCore(deps: CoreDeps) {
   return {
     // Sources
     addSource: (input: Arg<typeof addSource>) => addSource(deps, input),
+    /** Quick add / Share menu: a pasted or shared link goes to the YouTube or blog URL flow. */
+    addLink: (input: Arg<typeof addLink>) => addLink(deps, input),
     library: () => library(deps),
     source: (sourceId: string) => getSource(deps, sourceId),
     retrySource: (sourceId: string) => retrySource(deps, sourceId),
+    /** Delete a Source; Explainers citing it are left unchanged ("Source removed"). */
+    deleteSource: (sourceId: string) => deleteSource(deps, sourceId),
+    /** How many Explainers cite the Source (current versions): the warning before deleting it. */
+    explainersCitingSource: (sourceId: string) => countExplainersCitingSource(deps, sourceId),
     sourceChunks: (sourceId: string) => chunksOfSource(deps, sourceId),
     similarChunks: (input: Arg<typeof similarChunks>) => similarChunks(deps, input),
     /** A PDF's chapters (outline or page ranges) and which have had Topics proposed. */
@@ -71,6 +85,7 @@ export function createCore(deps: CoreDeps) {
     explainer: (topicId: string) => getExplainer(deps, topicId),
     explainerVersions: (topicId: string) => listExplainerVersions(deps, topicId),
     retryExplainer: (topicId: string) => retryExplainer(deps, topicId),
+    switchExplainerForm: (input: SwitchExplainerFormInput) => switchExplainerForm(deps, input),
 
     /** Drain the background job queue. See jobs.ts. */
     runJobs: (options?: RunJobsOptions) => runJobs(deps, jobHandlers, options),

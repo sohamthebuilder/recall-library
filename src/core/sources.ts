@@ -135,6 +135,22 @@ export async function retrySource(deps: CoreDeps, sourceId: string): Promise<Sou
   });
 }
 
+/**
+ * Delete a Source: its chunks, Topic links and proposals go with it. Explainers are never
+ * changed (ADR 0001); their citations to it read as "Source removed".
+ */
+export async function deleteSource(deps: CoreDeps, sourceId: string): Promise<void> {
+  const row = await sourceRow(deps, sourceId);
+  await deps.db.delete(sources).where(eq(sources.id, sourceId));
+  if (row.fileKey) {
+    try {
+      await deps.fileStore.delete(row.fileKey);
+    } catch {
+      // The Source is already gone; a file left behind in the store is harmless to the learner.
+    }
+  }
+}
+
 export async function sourceRow(deps: CoreDeps, sourceId: string): Promise<SourceRow> {
   const [row] = await deps.db.select().from(sources).where(eq(sources.id, sourceId));
   if (!row) throw new NotFoundError("That Source no longer exists.");

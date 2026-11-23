@@ -14,6 +14,7 @@ export type {
   ExplainerVersion,
   ExplainerVersionCause,
   ExplainerVersionSummary,
+  SwitchExplainerFormInput,
 } from "./explainers";
 export type {
   ExplainerCitation,
@@ -39,4 +40,6 @@ export type { StoredUpload, UploadedFile } from "./uploads";
 export type { Chapter, ChapterStatus } from "./pdf-sources";
 export { citationUrl } from "./citations";
 export { isYouTubeUrl, parseYouTubeVideoId, youTubeWatchUrl } from "./youtube";
+export { findLink } from "./links";
+export type { AddLinkInput } from "./quick-add";
 export type { TranscriptCue, YouTubeTranscript } from "./ports/content-fetcher";

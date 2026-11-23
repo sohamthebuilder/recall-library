@@ -1,4 +1,4 @@
-import { and, asc, cosineDistance, desc, eq, inArray, isNull, max } from "drizzle-orm";
+import { and, asc, cosineDistance, count, desc, eq, inArray, isNull, max, sql } from "drizzle-orm";
 import { explainers, explainerVersions, sourceChunks, sources, topicSources, topics } from "@/db/schema";
 import type { DbOrTx } from "@/db/types";
 import type { ChunkAnchor } from "./chunking";
@@ -7,12 +7,14 @@ import { NotFoundError, ValidationError } from "./errors";
 import {
   type ExplainerCitation,
   type ExplainerContent,
+  type ExplainerForm,
   parseStoredContent,
   validateExplainerContent,
   validateExplainerDraft,
 } from "./explainer-content";
 import { enqueueJob } from "./jobs";
 import { AiError, type ExplainerPassage } from "./ports/ai";
+import { sourceRow } from "./sources";
 
 /**
  * Explainers (ADR 0001). A Topic gets exactly one Explainer, once it has an approved Source.
@@ -27,6 +29,7 @@ const MAX_PASSAGES = 18;
 
 export const UNUSABLE_EXPLAINER_REASON = "The AI produced an Explainer that could not be used. Try again.";
 export const NO_SOURCE_TEXT_REASON = "None of this Topic's Sources has any text yet. Retry a Source, or link another.";
+export const UNUSABLE_STEPS_REASON = "The AI could not turn this Explainer into an animation. Try again.";
 export const UNEXPECTED_EXPLAINER_FAILURE = "Something went wrong while making this Explainer. Try again.";
 
 export type ExplainerStatus = "generating" | "ready" | "failed";
@@ -293,6 +296,54 @@ export async function saveExplainerVersion(
 }
 
 // ---------------------------------------------------------------------------------------
+// Switching form
+
+export interface SwitchExplainerFormInput {
+  topicId: string;
+  form: ExplainerForm;
+}
+
+/**
+ * Show the same Explainer as an infographic or as an animation. Saves a new version (cause
+ * `form_switch`); the other form's data (e.g. the animation steps) is kept so switching back is free.
+ * Switching to the form it already has changes nothing.
+ */
+export async function switchExplainerForm(deps: CoreDeps, input: SwitchExplainerFormInput): Promise<Explainer> {
+  await assertTopicExists(deps, input.topicId);
+  const explainer = await explainerRow(deps.db, input.topicId);
+  if (!explainer) throw new NotFoundError("That Topic has no Explainer.");
+  if (!explainer.currentVersionId) throw new ValidationError("The Explainer is not ready yet.");
+  const [row] = await deps.db.select().from(explainerVersions).where(eq(explainerVersions.id, explainer.currentVersionId));
+  const content = parseStoredContent(row!.content);
+  if (content.form !== input.form) {
+    let steps = content.steps;
+    if (input.form === "animation" && steps.length === 0) {
+      const [topic] = await deps.db.select().from(topics).where(eq(topics.id, input.topicId));
+      try {
+        steps = await deps.ai.generateExplainerSteps({
+          topic: { name: topic!.name, description: topic!.description },
+          content,
+        });
+      } catch (e) {
+        if (e instanceof AiError) throw new ValidationError(e.message);
+        throw e;
+      }
+    }
+    const next = { ...content, form: input.form, steps };
+    if (!validateExplainerContent(next).ok) throw new ValidationError(UNUSABLE_STEPS_REASON);
+    await deps.db.transaction((tx) =>
+      saveExplainerVersion(tx, deps.clock.now(), {
+        explainerId: explainer.id,
+        content: next,
+        cause: "form_switch",
+        causeDetail: { from: content.form, to: input.form },
+      }),
+    );
+  }
+  return (await getExplainer(deps, input.topicId))!;
+}
+
+// ---------------------------------------------------------------------------------------
 // Reading
 
 /** A Topic's Explainer, or null if it has none (no approved Source yet). */
@@ -332,6 +383,21 @@ export async function listExplainerVersions(deps: CoreDeps, topicId: string): Pr
     .innerJoin(explainers, eq(explainers.id, explainerVersions.explainerId))
     .where(eq(explainers.topicId, topicId))
     .orderBy(desc(explainerVersions.number));
+}
+
+/**
+ * How many Explainers cite this Source in the version the learner studies. Shown when the
+ * learner is about to delete the Source.
+ */
+export async function countExplainersCitingSource(deps: CoreDeps, sourceId: string): Promise<number> {
+  await sourceRow(deps, sourceId);
+  const citesSource = { keyPoints: [{ citations: [{ sourceId }] }] };
+  const [row] = await deps.db
+    .select({ n: count() })
+    .from(explainers)
+    .innerJoin(explainerVersions, eq(explainerVersions.id, explainers.currentVersionId))
+    .where(sql`${explainerVersions.content} @> ${JSON.stringify(citesSource)}::jsonb`);
+  return row!.n;
 }
 
 /** Resolve every citation in the content to its passage, or "Source removed". */

@@ -1,9 +1,10 @@
-import type { ExplainerDraft } from "@/core/explainer-content";
+import type { ExplainerDraft, ExplainerStep } from "@/core/explainer-content";
 import {
   AiError,
   type AiAdapter,
   type ConfirmTopicMatchInput,
   type GenerateExplainerInput,
+  type GenerateExplainerStepsInput,
   type ProposeTopicsInput,
   type TopicCandidate,
 } from "@/core/ports/ai";
@@ -22,6 +23,8 @@ type Scripted<T> = T | (() => T | Promise<T>);
  * - confirmTopicMatch: no match (scriptTopicMatch, keyed by candidate name)
  * - generateExplainer: a small valid infographic titled after the Topic, one key point per
  *   passage (up to 3) citing it (scriptExplainer / scriptExplainerFailure, keyed by Topic name)
+ * - generateExplainerSteps: one step per diagram node (scriptExplainerSteps /
+ *   scriptExplainerStepsFailure, keyed by Topic name)
  */
 export class FakeAi implements AiAdapter {
   private readonly scriptedEmbeddings = new Map<string, number[]>();
@@ -31,8 +34,14 @@ export class FakeAi implements AiAdapter {
   private readonly scriptedExplainers = new Map<string, ExplainerScript>();
   private readonly explainerFailures = new Map<string, string[]>();
 
+  private readonly scriptedSteps = new Map<string, StepsScript>();
+  private readonly stepsFailures = new Map<string, string[]>();
+
   /** Every generateExplainer call, in order. */
   readonly explainerRequests: GenerateExplainerInput[] = [];
+
+  /** Every generateExplainerSteps call, in order. */
+  readonly stepsRequests: GenerateExplainerStepsInput[] = [];
 
   /** Every confirmTopicMatch call, in order: which existing Topics were offered for which candidate. */
   readonly matchRequests: ConfirmTopicMatchInput[] = [];
@@ -93,6 +102,30 @@ export class FakeAi implements AiAdapter {
     return (typeof scripted === "function" ? await scripted(input) : scripted) as ExplainerDraft;
   }
 
+  /**
+   * Make `generateExplainerSteps` for the Topic with this name return these steps (or what the
+   * function builds from the request). Need not be valid.
+   */
+  scriptExplainerSteps(topicName: string, steps: StepsScript): this {
+    this.scriptedSteps.set(topicName, steps);
+    return this;
+  }
+
+  /** Make the next `generateExplainerSteps` call for this Topic fail with this reason. */
+  scriptExplainerStepsFailure(topicName: string, reason: string): this {
+    this.stepsFailures.set(topicName, [...(this.stepsFailures.get(topicName) ?? []), reason]);
+    return this;
+  }
+
+  async generateExplainerSteps(input: GenerateExplainerStepsInput): Promise<ExplainerStep[]> {
+    this.stepsRequests.push(input);
+    const failure = this.stepsFailures.get(input.topic.name)?.shift();
+    if (failure !== undefined) throw new AiError(failure);
+    const scripted = this.scriptedSteps.get(input.topic.name);
+    if (scripted === undefined) return defaultSteps(input);
+    return (typeof scripted === "function" ? await scripted(input) : scripted) as ExplainerStep[];
+  }
+
   async embed(texts: string[]): Promise<number[][]> {
     return texts.map((t) => this.scriptedEmbeddings.get(t) ?? defaultEmbedding(t));
   }
@@ -120,6 +153,17 @@ export type ExplainerScript =
   | ExplainerDraft
   | Record<string, unknown>
   | ((input: GenerateExplainerInput) => ExplainerDraft | Record<string, unknown> | Promise<ExplainerDraft | Record<string, unknown>>);
+
+/** Steps, or a builder from the request. Typed loosely so tests can script invalid steps. */
+export type StepsScript =
+  | ExplainerStep[]
+  | Record<string, unknown>[]
+  | ((input: GenerateExplainerStepsInput) => unknown[] | Promise<unknown[]>);
+
+/** One step per diagram node, in order, highlighting just that node. */
+function defaultSteps({ content }: GenerateExplainerStepsInput): ExplainerStep[] {
+  return content.diagram.nodes.map((n) => ({ caption: `Look at ${n.label}.`, highlight: { nodeIds: [n.id], edgeIds: [] } }));
+}
 
 function defaultExplainer({ topic, passages }: GenerateExplainerInput): ExplainerDraft {
   const cited = passages.slice(0, 3);

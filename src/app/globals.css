@@ -512,6 +512,157 @@ g[class^="group-"]:not(.group-none) .diagram-node {
   background: var(--node-fill);
 }
 
+/* Explainer form switch + animation (#18) */
+.explainer-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+}
+
+.explainer-head .explainer-title {
+  margin: 0;
+}
+
+.form-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-switch .error {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.segmented button {
+  border: 0;
+  border-radius: 0;
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+}
+
+.segmented button.active {
+  background: var(--accent);
+  color: var(--accent-text);
+  opacity: 1;
+}
+
+.diagram-svg g,
+.diagram-edge,
+.diagram-edge-label {
+  transition: opacity 0.25s ease;
+}
+
+.diagram-svg .is-dimmed {
+  opacity: 0.25;
+}
+
+.diagram-svg g.is-highlighted .diagram-node {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+.diagram-edge.is-highlighted {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diagram-svg g,
+  .diagram-edge,
+  .diagram-edge-label {
+    transition: none;
+  }
+}
+
+.animation {
+  display: grid;
+  gap: 12px;
+}
+
+.animation-caption {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--bg);
+  border-radius: 8px;
+  min-height: 4.5em;
+}
+
+.animation-count {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.animation-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.animation-controls > button {
+  min-height: 44px;
+  min-width: 96px;
+}
+
+.animation-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.animation-dots button {
+  width: 24px;
+  height: 24px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+}
+
+.animation-dots button::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.animation-dots button.active::after {
+  background: var(--accent);
+}
+
+.animation-hint {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+@media (hover: none) {
+  .animation-hint {
+    display: none;
+  }
+}
+
 .diagram-text {
   font-size: 0.85rem;
   color: var(--muted);
@@ -604,4 +755,21 @@ g[class^="group-"]:not(.group-none) .diagram-node {
 .tag-option input {
   width: auto;
   margin: 0;
+}
+
+/* Quick add (#13): the add-a-link box on the home screen and the Share target page. */
+.quick-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.quick-add-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.share-panel {
+  max-width: 560px;
+  margin: 0 auto;
 }

@@ -38,6 +38,17 @@ export async function addNote(_prev: AddNoteState, formData: FormData): Promise<
   return state;
 }
 
+/** Quick add (home screen box and the Share menu): the core routes the link to the YouTube or blog URL flow. */
+export async function addLink(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireLearner();
+  const state = await attempt(() => getCore().addLink({ text: String(formData.get("link") ?? "") }));
+  if (state.ok) {
+    runJobsAfterResponse();
+    revalidatePath("/");
+  }
+  return state;
+}
+
 /** Thin adapter from the link form to `addSource`. */
 export async function addUrl(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireLearner();
@@ -122,6 +133,19 @@ export async function retrySource(sourceId: string): Promise<void> {
   revalidatePath("/");
 }
 
+/** Delete a Source (the learner has confirmed), then go back to the Library. */
+export async function deleteSource(sourceId: string): Promise<void> {
+  await requireLearner();
+  try {
+    await getCore().deleteSource(sourceId);
+  } catch (e) {
+    if (!(e instanceof NotFoundError)) throw e;
+  }
+  revalidatePath("/");
+  revalidatePath("/topics", "layout");
+  redirect("/");
+}
+
 /** Approve (optionally renamed), merge into an existing Topic, or reject a proposed Topic. */
 export async function decideTopicProposal(
   sourceId: string,
@@ -175,6 +199,15 @@ export async function retryExplainer(topicId: string): Promise<void> {
   const state = await attempt(() => getCore().retryExplainer(topicId));
   if (state.ok) runJobsAfterResponse();
   revalidatePath(`/topics/${topicId}`);
+}
+
+/** Show the Explainer as an infographic or step by step; the core saves a new version. */
+export async function switchExplainerForm(topicId: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  await requireLearner();
+  const form = formData.get("form") === "animation" ? "animation" : "infographic";
+  const state = await attempt(() => getCore().switchExplainerForm({ topicId, form }));
+  revalidatePath(`/topics/${topicId}`);
+  return state;
 }
 
 export async function deleteTopic(topicId: string): Promise<void> {
