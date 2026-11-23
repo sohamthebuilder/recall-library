@@ -20,6 +20,7 @@ export interface JobPayloads {
   generate_explainer: { topicId: string };
   update_recall_prompts: { topicId: string };
   propose_chapter_topics: { sourceId: string };
+  suggest_edits: { topicId: string; sourceId: string };
 }
 
 export type JobKind = keyof JobPayloads;

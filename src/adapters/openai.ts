@@ -13,6 +13,8 @@ import {
   type RecallPromptDraft,
   type RecallPromptReconciliation,
   type ReconcileRecallPromptsInput,
+  type SuggestedEditDraft,
+  type SuggestEditsInput,
   type TopicCandidate,
 } from "@/core/ports/ai";
 import { EMBEDDING_DIMENSIONS } from "@/db/schema";
@@ -398,6 +400,64 @@ export function createOpenAiAdapter(options: OpenAiOptions): AiAdapter {
       };
     },
 
+    async suggestEdits({ topic, explainer, source, passages }: SuggestEditsInput): Promise<SuggestedEditDraft[]> {
+      // Key points and passages are numbered for the model and mapped back to ids here.
+      const result = await structured<{
+        edits: { kind: "adds" | "contradicts"; summary: string; keyPoint: number; text: string; passages: number[] }[];
+      }>(
+        "suggested_edits",
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["edits"],
+          properties: {
+            edits: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["kind", "summary", "keyPoint", "text", "passages"],
+                properties: {
+                  kind: { type: "string", enum: ["adds", "contradicts"] },
+                  summary: { type: "string" },
+                  keyPoint: { type: "integer" },
+                  text: { type: "string" },
+                  passages: { type: "array", items: { type: "integer" } },
+                },
+              },
+            },
+          },
+        },
+        [
+          "A learner studies an Explainer for a Topic, which they may have edited themselves. A new Source was just added.",
+          "Propose Suggested Edits: changes to the key points for what the new Source's passages ADD (important content",
+          "the Explainer lacks) or CONTRADICT (a key point the Source disagrees with). Use ONLY the passages given.",
+          "Propose nothing for content the Explainer already covers. Often there are 0-3 edits.",
+          "Each edit: kind ('adds' or 'contradicts'); summary (one sentence for the learner saying what the Source adds or",
+          "contradicts); keyPoint (the number of the key point to rewrite, or 0 to add a new key point); text (the proposed key",
+          "point, one or two plain sentences; when rewriting, keep the learner's wording where it still holds);",
+          "passages (the numbers of the passages it comes from, at least one).",
+        ].join("\n"),
+        [
+          `Topic: ${describe(topic)}`,
+          `Explainer: ${explainer.title}`,
+          "Key points:",
+          ...explainer.keyPoints.map((k, i) => `${i + 1}. ${k.text}`),
+          "",
+          `New Source${source.title ? `: ${source.title}` : ""}`,
+          ...passages.map((p, i) => `[${i + 1}]\n${p.text}\n`),
+        ].join("\n"),
+      );
+      return result.edits.map((e) => ({
+        kind: e.kind,
+        summary: e.summary,
+        // An out-of-range number becomes an unknown id or chunk, so the core drops the edit.
+        keyPointId: e.keyPoint === 0 ? null : (explainer.keyPoints[e.keyPoint - 1]?.id ?? `unknown-key-point-${e.keyPoint}`),
+        text: e.text,
+        citations: e.passages.map((n) => ({ chunkId: passages[n - 1]?.chunkId ?? `unknown-passage-${n}` })),
+      }));
+    },
+
     async applyExplainerInstruction({
       topic,
       instruction,
@@ -619,6 +679,7 @@ export function openAiFromEnv(): AiAdapter {
       generateRecallPrompts: missing,
       gradeAnswer: missing,
       reconcileRecallPrompts: missing,
+      suggestEdits: missing,
       applyExplainerInstruction: missing,
     };
   }

@@ -44,6 +44,12 @@ import {
   topicReviews,
 } from "./reviews";
 import { addSource, deleteSource, getSource, library, retrySource } from "./sources";
+import {
+  acceptSuggestedEdit,
+  listSuggestedEdits,
+  pendingSuggestedEditCounts,
+  rejectSuggestedEdit,
+} from "./suggested-edits";
 import { type FindTopicsInput, findTopics, listTags, tagTopic, untagTopic } from "./tags";
 import { importTopics, linkSourceByHand } from "./topic-import";
 import {
@@ -123,6 +129,16 @@ export function createCore(deps: CoreDeps) {
     explainerComparison: (topicId: string) => compareExplainerWithSources(deps, topicId),
     /** Make an earlier version current again, as a new version (cause `restore`). */
     restoreExplainerVersion: (ref: ExplainerVersionRef) => restoreExplainerVersion(deps, ref),
+
+    // Suggested Edits (ADR 0001: a new Source on a Topic with an Explainer brings these, never a regeneration)
+    /** The Topic's pending Suggested Edits, each with its Source, adds/contradicts and the proposed change. */
+    suggestedEdits: (topicId: string) => listSuggestedEdits(deps, topicId),
+    /** Pending Suggested Edits per Topic (only Topics that have some): flags them in the Topic list. */
+    pendingSuggestedEditCounts: () => pendingSuggestedEditCounts(deps),
+    /** Apply one to the current Explainer as a new version (cause `suggested_edit`). */
+    acceptSuggestedEdit: (suggestedEditId: string) => acceptSuggestedEdit(deps, suggestedEditId),
+    /** Turn one down; the Explainer does not change. */
+    rejectSuggestedEdit: (suggestedEditId: string) => rejectSuggestedEdit(deps, suggestedEditId),
 
     // Recall Prompts
     recallPrompts: (topicId: string) => listRecallPrompts(deps, topicId),

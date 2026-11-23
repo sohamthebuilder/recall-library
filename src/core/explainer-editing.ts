@@ -144,37 +144,76 @@ export interface KeyPointComparison {
   keyPointId: string;
   /** The key point as the learner studies it now. */
   text: string;
-  /** What the AI first wrote for this key point (in the generated version); null for a point the learner added. */
+  /**
+   * Who first wrote this key point: the AI when it generated the Explainer, the AI in a
+   * Suggested Edit the learner accepted (which also covers a point that edit rewrote), or the learner.
+   */
+  origin: KeyPointOrigin;
+  /** What the AI wrote for this key point (when generated, or in the accepted Suggested Edit); null for a point the learner added. */
   generatedText: string | null;
-  /** Whether the learner's text differs from what the AI first wrote. */
+  /** Whether the learner's text differs from what the AI wrote. */
   edited: boolean;
   /** The Source passages the key point cites (or that their Source was removed). */
   passages: CitedPassage[];
 }
 
+export type KeyPointOrigin = "generated" | "suggested_edit" | "learner";
+
 /** The current key points side by side with the Source passages they cite. */
 export async function compareExplainerWithSources(deps: CoreDeps, topicId: string): Promise<KeyPointComparison[]> {
-  const { explainerId, content } = await currentContent(deps, topicId);
-  const [first] = await deps.db
-    .select({ content: explainerVersions.content })
+  const { explainerId, versionId, content } = await currentContent(deps, topicId);
+  const versions = await deps.db
+    .select()
     .from(explainerVersions)
-    .where(and(eq(explainerVersions.explainerId, explainerId), eq(explainerVersions.cause, "generated")))
-    .orderBy(asc(explainerVersions.number))
-    .limit(1);
-  const generated = new Map(
-    (first ? parseStoredContent(first.content).keyPoints : []).map((k) => [k.id, k.text] as const),
-  );
+    .where(eq(explainerVersions.explainerId, explainerId))
+    .orderBy(asc(explainerVersions.number));
+  const origins = keyPointOrigins(versions).get(versionId)!;
   const passages = await citedPassages(deps.db, content);
   return content.keyPoints.map((k) => {
-    const generatedText = generated.get(k.id) ?? null;
+    const { origin, text: generatedText } = origins.get(k.id) ?? { origin: "learner" as const, text: null };
     return {
       keyPointId: k.id,
       text: k.text,
+      origin,
       generatedText,
       edited: generatedText !== k.text,
       passages: k.citations.map((c) => passages[c.chunkId]!),
     };
   });
+}
+
+type Origins = Map<string, { origin: KeyPointOrigin; text: string | null }>;
+
+/**
+ * For each version (by id), where each of its key points came from. A point keeps the origin it
+ * had in the version before (or, for a restore, in the version restored); a point that is new in
+ * a version, or that an accepted Suggested Edit rewrote, takes that version's cause.
+ */
+function keyPointOrigins(versions: (typeof explainerVersions.$inferSelect)[]): Map<string, Origins> {
+  const byVersion = new Map<string, Origins>();
+  let previous: Origins = new Map();
+  for (const v of versions) {
+    const detail = (v.causeDetail ?? {}) as { restoredFromVersionId?: unknown; keyPointId?: unknown };
+    const base =
+      v.cause === "restore" && typeof detail.restoredFromVersionId === "string"
+        ? (byVersion.get(detail.restoredFromVersionId) ?? previous)
+        : previous;
+    const origins: Origins = new Map();
+    for (const k of parseStoredContent(v.content).keyPoints) {
+      if (v.cause === "suggested_edit" && detail.keyPointId === k.id) {
+        origins.set(k.id, { origin: "suggested_edit", text: k.text });
+      } else if (base.has(k.id)) {
+        origins.set(k.id, base.get(k.id)!);
+      } else if (v.cause === "generated") {
+        origins.set(k.id, { origin: "generated", text: k.text });
+      } else {
+        origins.set(k.id, { origin: "learner", text: null });
+      }
+    }
+    byVersion.set(v.id, origins);
+    previous = origins;
+  }
+  return byVersion;
 }
 
 // ---------------------------------------------------------------------------------------

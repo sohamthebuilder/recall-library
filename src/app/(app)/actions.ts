@@ -380,3 +380,22 @@ export async function generateRecallPrompts(topicId: string): Promise<void> {
   if (state.ok) runJobsAfterResponse();
   revalidatePath(`/topics/${topicId}`);
 }
+
+/** Accept a Suggested Edit (#20): the core saves a new Explainer version, then Recall Prompts are reconciled. */
+export async function acceptSuggestedEdit(topicId: string, suggestedEditId: string, _prev: FormState): Promise<FormState> {
+  await requireLearner();
+  const state = await attempt(() => getCore().acceptSuggestedEdit(suggestedEditId));
+  if (state.ok) runJobsAfterResponse();
+  revalidatePath(`/topics/${topicId}`);
+  revalidatePath("/topics");
+  return state;
+}
+
+/** Reject a Suggested Edit (#20); the Explainer does not change. */
+export async function rejectSuggestedEdit(topicId: string, suggestedEditId: string, _prev: FormState): Promise<FormState> {
+  await requireLearner();
+  const state = await attempt(() => getCore().rejectSuggestedEdit(suggestedEditId));
+  revalidatePath(`/topics/${topicId}`);
+  revalidatePath("/topics");
+  return state;
+}

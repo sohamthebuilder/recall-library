@@ -29,9 +29,11 @@ export type {
   EditExplainerTextInput,
   ExplainerVersionRef,
   KeyPointComparison,
+  KeyPointOrigin,
   OpenedExplainerVersion,
 } from "./explainer-editing";
 export type { ImportTopicsResult } from "./topic-import";
+export type { SuggestedEdit, SuggestedEditKind } from "./suggested-edits";
 export type {
   AddRecallPromptInput,
   EditRecallPromptInput,
@@ -60,6 +62,8 @@ export type {
   GenerateExplainerInput,
   RecallPromptReconciliation,
   ReconcileRecallPromptsInput,
+  SuggestedEditDraft,
+  SuggestEditsInput,
   TopicCandidate,
 } from "./ports/ai";
 export { AiError } from "./ports/ai";

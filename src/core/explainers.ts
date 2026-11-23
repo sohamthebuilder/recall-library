@@ -16,6 +16,7 @@ import { enqueueJob } from "./jobs";
 import { AiError, type ExplainerPassage } from "./ports/ai";
 import { onExplainerVersionSaved } from "./recall-prompts";
 import { sourceRow } from "./sources";
+import { onSourceTextCapturedForSuggestions, queueSuggestedEdits } from "./suggested-edits";
 
 /**
  * Explainers (ADR 0001). A Topic gets exactly one Explainer, once it has an approved Source.
@@ -87,7 +88,7 @@ export interface Explainer {
 /**
  * A Source was just linked to a Topic. If the Topic has no Explainer yet, create one and
  * queue its generation. If one is still being generated, that job will include this Source.
- * If one exists already, it is never regenerated (ADR 0001): Suggested Edits (#20) hook in here.
+ * If one exists already, it is never regenerated (ADR 0001): the Source brings Suggested Edits (#20).
  */
 export async function onSourceLinked(
   tx: DbOrTx,
@@ -106,6 +107,8 @@ export async function onSourceLinked(
   const [existing] = await tx.select().from(explainers).where(eq(explainers.topicId, link.topicId));
   if (existing && existing.status === "failed" && !existing.currentVersionId) {
     await startGenerating(tx, now, existing.id, link.topicId);
+  } else if (existing?.currentVersionId) {
+    await queueSuggestedEdits(tx, now, link);
   }
 }
 
@@ -120,6 +123,7 @@ export async function onSourceTextCaptured(tx: DbOrTx, now: Date, sourceId: stri
     .innerJoin(topicSources, eq(topicSources.topicId, explainers.topicId))
     .where(and(eq(topicSources.sourceId, sourceId), isNull(explainers.currentVersionId)));
   for (const e of waiting) await startGenerating(tx, now, e.id, e.topicId);
+  await onSourceTextCapturedForSuggestions(tx, now, sourceId);
 }
 
 async function startGenerating(tx: DbOrTx, now: Date, explainerId: string, topicId: string) {

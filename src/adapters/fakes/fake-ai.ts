@@ -13,6 +13,8 @@ import {
   type RecallPromptDraft,
   type RecallPromptReconciliation,
   type ReconcileRecallPromptsInput,
+  type SuggestedEditDraft,
+  type SuggestEditsInput,
   type TopicCandidate,
 } from "@/core/ports/ai";
 import { EMBEDDING_DIMENSIONS } from "@/db/schema";
@@ -36,6 +38,8 @@ type Scripted<T> = T | (() => T | Promise<T>);
  *   (scriptRecallPrompts / scriptRecallPromptsFailure, keyed by Topic name)
  * - reconcileRecallPrompts: keep every prompt, add none (scriptRecallPromptReconciliation /
  *   scriptRecallPromptReconciliationFailure, keyed by Topic name)
+ * - suggestEdits: no Suggested Edits (scriptSuggestedEdits / scriptSuggestedEditsFailure,
+ *   keyed by Topic name)
  * - applyExplainerInstruction: the same Explainer with the instruction as its analogy
  *   (scriptExplainerInstruction / scriptExplainerInstructionFailure, keyed by Topic name)
  */
@@ -235,6 +239,33 @@ export class FakeAi implements AiAdapter {
     return (typeof scripted === "function" ? await scripted(input) : scripted) as RecallPromptReconciliation;
   }
 
+  private readonly scriptedSuggestedEdits = new Map<string, SuggestedEditsScript>();
+  private readonly suggestedEditFailures = new Map<string, string[]>();
+
+  /** Every suggestEdits call, in order. */
+  readonly suggestEditsRequests: SuggestEditsInput[] = [];
+
+  /** Make `suggestEdits` for the Topic with this name return these (or what the function builds). Need not be valid. */
+  scriptSuggestedEdits(topicName: string, edits: SuggestedEditsScript): this {
+    this.scriptedSuggestedEdits.set(topicName, edits);
+    return this;
+  }
+
+  /** Make the next `suggestEdits` call for this Topic fail with this reason (then it behaves as scripted). */
+  scriptSuggestedEditsFailure(topicName: string, reason: string): this {
+    this.suggestedEditFailures.set(topicName, [...(this.suggestedEditFailures.get(topicName) ?? []), reason]);
+    return this;
+  }
+
+  async suggestEdits(input: SuggestEditsInput): Promise<SuggestedEditDraft[]> {
+    this.suggestEditsRequests.push(input);
+    const failure = this.suggestedEditFailures.get(input.topic.name)?.shift();
+    if (failure !== undefined) throw new AiError(failure);
+    const scripted = this.scriptedSuggestedEdits.get(input.topic.name);
+    if (scripted === undefined) return [];
+    return (typeof scripted === "function" ? await scripted(input) : scripted) as SuggestedEditDraft[];
+  }
+
   /**
    * Make `applyExplainerInstruction` for the Topic with this name return this draft (or what the
    * function builds from the request). Need not be valid.
@@ -339,6 +370,12 @@ export type ReconciliationScript =
   | ((
       input: ReconcileRecallPromptsInput,
     ) => RecallPromptReconciliation | { keep: unknown; add: unknown } | Promise<RecallPromptReconciliation | { keep: unknown; add: unknown }>);
+
+/** Suggested Edit drafts, or a builder from the request. Typed loosely so tests can script invalid ones. */
+type LooseSuggestedEdits = (SuggestedEditDraft | Record<string, unknown>)[];
+export type SuggestedEditsScript =
+  | LooseSuggestedEdits
+  | ((input: SuggestEditsInput) => LooseSuggestedEdits | Promise<LooseSuggestedEdits>);
 
 /** Drafts, or a builder from the request. Typed loosely so tests can script invalid ones. */
 type LooseRecallPrompts = (RecallPromptDraft | Record<string, unknown>)[];

@@ -62,6 +62,36 @@ export interface AiAdapter {
    * same; citations may only name the given passages' chunkIds. Validated by the core.
    */
   applyExplainerInstruction(input: ApplyExplainerInstructionInput): Promise<ExplainerDraft>;
+
+  /**
+   * A new Source was linked to a Topic that already has an Explainer (ADR 0001: it is never
+   * regenerated). Propose Suggested Edits: changes to the Explainer's key points that the new
+   * Source's passages add or contradict. Each either adds a key point (`keyPointId` null) or
+   * rewrites the named one, and cites the given passages. Often none. Validated by the core.
+   */
+  suggestEdits(input: SuggestEditsInput): Promise<SuggestedEditDraft[]>;
+}
+
+export interface SuggestEditsInput {
+  topic: { name: string; description: string | null };
+  /** The Explainer as the learner studies it now. */
+  explainer: ExplainerContent;
+  /** The new Source and its passages most relevant to the Topic. */
+  source: { title: string | null };
+  passages: ExplainerPassage[];
+}
+
+export interface SuggestedEditDraft {
+  /** Whether the new Source adds to the Explainer or contradicts it. */
+  kind: "adds" | "contradicts";
+  /** One sentence for the learner: what the Source adds or contradicts. */
+  summary: string;
+  /** The key point to rewrite, or null to add a new key point. */
+  keyPointId: string | null;
+  /** The proposed key point text. */
+  text: string;
+  /** The passages (of those given) the proposed text comes from. */
+  citations: { chunkId: string }[];
 }
 
 export interface ApplyExplainerInstructionInput {
