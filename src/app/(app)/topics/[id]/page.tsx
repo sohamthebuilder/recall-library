@@ -8,6 +8,7 @@ import { DeleteTopicButton } from "./delete-topic-button";
 import { ExplainerPanel } from "./explainer-panel";
 import { LinkSourceForm } from "./link-source-form";
 import { RecallPromptsPanel } from "./recall-prompts-panel";
+import { SuggestedEditsPanel } from "./suggested-edits-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ export default async function TopicPage({ params }: { params: Promise<{ id: stri
     throw e;
   }
   const allTags = await core.tags();
+  const suggestedEdits = await core.suggestedEdits(topic.id);
   const linked = new Set(topic.sources.map((s) => s.id));
   const linkable = (await core.library()).sources
     .filter((s) => !linked.has(s.id))
@@ -62,6 +64,8 @@ export default async function TopicPage({ params }: { params: Promise<{ id: stri
         <AddTagForm topicId={topic.id} existingTags={allTags.map((t) => t.name)} />
 
       </header>
+
+      <SuggestedEditsPanel topicId={topic.id} edits={suggestedEdits} />
 
       <div className="topic-layout">
         <ExplainerPanel topicId={topic.id} explainer={explainer} />

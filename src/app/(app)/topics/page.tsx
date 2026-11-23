@@ -16,6 +16,7 @@ export default async function TopicsPage({ searchParams }: { searchParams: Searc
 
   const core = getCore();
   const [topics, allTags] = await Promise.all([core.findTopics({ search, tagIds }), core.tags()]);
+  const pendingEdits = await core.pendingSuggestedEditCounts();
 
   return (
     <section aria-labelledby="topics">
@@ -76,6 +77,14 @@ export default async function TopicsPage({ searchParams }: { searchParams: Searc
                 {topic.sourceCount === 0
                   ? "Waiting for a Source"
                   : `${topic.sourceCount} Source${topic.sourceCount === 1 ? "" : "s"}`}
+                {pendingEdits[topic.id] ? (
+                  <>
+                    {" · "}
+                    <span className="badge badge-pending">
+                      {pendingEdits[topic.id]} Suggested Edit{pendingEdits[topic.id] === 1 ? "" : "s"}
+                    </span>
+                  </>
+                ) : null}
               </div>
             </li>
           ))}

@@ -956,3 +956,64 @@ g[class^="group-"]:not(.group-none) .diagram-node {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* (#20) Suggested Edits */
+.suggested-edits {
+  margin-bottom: 16px;
+}
+
+.suggested-edits h2 {
+  margin: 0 0 4px;
+}
+
+.suggested-edit-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.suggested-edit {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  min-width: 0;
+}
+
+.suggested-edit-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.suggested-edit-change {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.suggested-edit-change p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.badge-contradicts {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.badge-pending {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+@media (max-width: 760px) {
+  .suggested-edit-change {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

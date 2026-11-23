@@ -224,6 +224,41 @@ export const explainerVersions = pgTable(
   (t) => [uniqueIndex("explainer_versions_explainer_number").on(t.explainerId, t.number)],
 );
 
+export const suggestedEditKind = pgEnum("suggested_edit_kind", ["adds", "contradicts"]);
+export const suggestedEditStatus = pgEnum("suggested_edit_status", ["pending", "accepted", "rejected"]);
+
+/**
+ * A change to a Topic's Explainer that the AI proposed from a newly linked Source (#20, ADR 0001).
+ * It rewrites one key point (`key_point_id`) or adds one (null). `citations` is a jsonb
+ * ExplainerCitation[] into the new Source's chunks. Accepting saves an Explainer version;
+ * rejecting changes nothing. Deleting the Source or the Topic deletes its Suggested Edits.
+ */
+export const suggestedEdits = pgTable(
+  "suggested_edits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    topicId: uuid("topic_id")
+      .notNull()
+      .references(() => topics.id, { onDelete: "cascade" }),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "cascade" }),
+    kind: suggestedEditKind("kind").notNull(),
+    summary: text("summary").notNull(),
+    keyPointId: text("key_point_id"),
+    text: text("text").notNull(),
+    citations: jsonb("citations").$type<{ chunkId: string; sourceId: string }[]>().notNull(),
+    status: suggestedEditStatus("status").notNull().default("pending"),
+    /** The Explainer version this edit was proposed against. */
+    baseVersionId: uuid("base_version_id").references(() => explainerVersions.id, { onDelete: "set null" }),
+    /** Order among the edits proposed together (the AI's order). */
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+  },
+  (t) => [index("suggested_edits_topic_status").on(t.topicId, t.status)],
+);
+
 export const recallPromptKind = pgEnum("recall_prompt_kind", ["explain", "compare", "apply", "why"]);
 /** Who wrote a Recall Prompt's current wording. Reconciliation (#17) only touches `generated` ones. */
 export const recallPromptOrigin = pgEnum("recall_prompt_origin", ["generated", "learner_edited", "learner_written"]);

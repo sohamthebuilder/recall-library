@@ -34,16 +34,19 @@ export default async function CompareExplainerPage({ params }: { params: Promise
             <div>
               <h3 className="compare-heading">
                 Key point {i + 1}{" "}
-                {row.generatedText === null ? (
+                {row.origin === "learner" ? (
                   <span className="badge">Added by you</span>
-                ) : row.edited ? (
-                  <span className="badge">Edited</span>
-                ) : null}
+                ) : (
+                  <>
+                    {row.origin === "suggested_edit" ? <span className="badge">From a Suggested Edit</span> : null}
+                    {row.edited ? <span className="badge">Edited</span> : null}
+                  </>
+                )}
               </h3>
               <p className="compare-text">{row.text}</p>
               {row.edited && row.generatedText !== null ? (
                 <p className="hint">
-                  <span className="muted">First written as:</span> {row.generatedText}
+                  <span className="muted">{row.origin === "suggested_edit" ? "Suggested as:" : "First written as:"}</span> {row.generatedText}
                 </p>
               ) : null}
             </div>
