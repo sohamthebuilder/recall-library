@@ -55,6 +55,22 @@ export interface AiAdapter {
    * The core validates the result.
    */
   gradeAnswer(input: GradeAnswerInput): Promise<AnswerGrade>;
+
+  /**
+   * Reshape an Explainer as the learner instructs ("use a restaurant analogy", "show the
+   * partitions"). Returns the whole new Explainer. Keep key point ids for points that are the
+   * same; citations may only name the given passages' chunkIds. Validated by the core.
+   */
+  applyExplainerInstruction(input: ApplyExplainerInstructionInput): Promise<ExplainerDraft>;
+}
+
+export interface ApplyExplainerInstructionInput {
+  topic: { name: string; description: string | null };
+  instruction: string;
+  /** The Explainer's current version. */
+  explainer: ExplainerContent;
+  /** The Source passages the current version cites (those whose Source still exists). */
+  passages: ExplainerPassage[];
 }
 
 export type ReviewRating = "again" | "hard" | "good" | "easy";

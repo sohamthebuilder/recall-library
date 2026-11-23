@@ -16,7 +16,7 @@ function causeLabel(v: ExplainerVersionSummary): string {
     case "generated":
       return "Made from the Sources";
     case "instruction":
-      return "Changed by instruction";
+      return v.instruction ? `Changed by instruction: “${v.instruction}”` : "Changed by instruction";
     case "text_edit":
       return "You edited the text";
     case "suggested_edit":
