@@ -123,7 +123,7 @@ export async function listRecallPrompts(deps: CoreDeps, topicId: string): Promis
   return rows.map(toRecallPrompt);
 }
 
-function toRecallPrompt(row: typeof recallPrompts.$inferSelect): RecallPrompt {
+export function toRecallPrompt(row: typeof recallPrompts.$inferSelect): RecallPrompt {
   return {
     id: row.id,
     topicId: row.topicId,

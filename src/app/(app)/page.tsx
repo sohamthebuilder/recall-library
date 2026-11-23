@@ -4,6 +4,7 @@ import { getCore } from "@/server/core";
 import { AddNoteForm } from "./add-note-form";
 import { AddUrlForm } from "./add-url-form";
 import { AddYouTubeForm } from "./add-youtube-form";
+import { DueBanner } from "./due-banner";
 import { SourceMeta, sourceDisplayTitle } from "./source-meta";
 import { QuickAddForm } from "./quick-add-form";
 import { UploadMarkdownForm } from "./upload-markdown-form";
@@ -16,6 +17,8 @@ export default async function LibraryPage() {
   const { sources } = await getCore().library();
 
   return (
+    <>
+    <DueBanner />
     <div className="two-column">
       <RefreshWhileProcessing active={sources.some((s) => isSourceProcessing(s.status))} />
       <div className="stack">
@@ -72,5 +75,6 @@ export default async function LibraryPage() {
         )}
       </section>
     </div>
+    </>
   );
 }

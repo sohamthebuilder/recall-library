@@ -2,8 +2,10 @@ import type { ExplainerContent, ExplainerDraft, ExplainerStep } from "@/core/exp
 import {
   AiError,
   type AiAdapter,
+  type AnswerGrade,
   type ApplyExplainerInstructionInput,
   type ConfirmTopicMatchInput,
+  type GradeAnswerInput,
   type GenerateExplainerInput,
   type GenerateExplainerStepsInput,
   type GenerateRecallPromptsInput,
@@ -312,6 +314,48 @@ export function createOpenAiAdapter(options: OpenAiOptions): AiAdapter {
       return result.prompts;
     },
 
+    async gradeAnswer({ topic, question, expectedPoints, answer, explainer }: GradeAnswerInput): Promise<AnswerGrade> {
+      return structured<AnswerGrade>(
+        "answer_grade",
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["rating", "pointsCovered", "pointsMissed", "relevantKeyPointIds"],
+          properties: {
+            rating: { type: "string", enum: ["again", "hard", "good", "easy"] },
+            pointsCovered: { type: "array", items: { type: "string" } },
+            pointsMissed: { type: "array", items: { type: "string" } },
+            relevantKeyPointIds: { type: "array", items: { type: "string" } },
+          },
+        },
+        [
+          "You grade a learner's answer to a Recall Prompt, written from memory in their own words.",
+          "Judge it against the expected key points and the Explainer (the learner's reference). Credit the",
+          "meaning, not the wording; ignore spelling and style. Do not credit points the answer only hints at.",
+          "rating: again (missed the core idea or wrong), hard (core idea but key points missing or shaky),",
+          "good (covers the expected points), easy (complete, precise and confident).",
+          "pointsCovered / pointsMissed: the expected key points, copied as given, split by whether the answer covers them.",
+          "relevantKeyPointIds: ids of the Explainer key points the learner should reread (most relevant first, at most 3).",
+        ].join("\n"),
+        [
+          `Topic: ${describe(topic)}`,
+          `Question: ${question}`,
+          "Expected key points:",
+          ...expectedPoints.map((p) => `- ${p}`),
+          ...(explainer
+            ? [
+                `Explainer: ${explainer.title}`,
+                ...explainer.keyPoints.map((k) => `- [${k.id}] ${k.text}`),
+                ...(explainer.analogy ? [`Analogy: ${explainer.analogy}`] : []),
+              ]
+            : ["(This Topic has no Explainer yet.)"]),
+          "",
+          "Learner's answer:",
+          answer,
+        ].join("\n"),
+      );
+    },
+
     async reconcileRecallPrompts({
       topic,
       explainer,
@@ -573,6 +617,7 @@ export function openAiFromEnv(): AiAdapter {
       generateExplainer: missing,
       generateExplainerSteps: missing,
       generateRecallPrompts: missing,
+      gradeAnswer: missing,
       reconcileRecallPrompts: missing,
       applyExplainerInstruction: missing,
     };
