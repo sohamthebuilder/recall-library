@@ -1,9 +1,10 @@
-import type { ExplainerDraft } from "@/core/explainer-content";
+import type { ExplainerDraft, ExplainerStep } from "@/core/explainer-content";
 import {
   AiError,
   type AiAdapter,
   type ConfirmTopicMatchInput,
   type GenerateExplainerInput,
+  type GenerateExplainerStepsInput,
   type ProposeTopicsInput,
   type TopicCandidate,
 } from "@/core/ports/ai";
@@ -150,8 +151,9 @@ export function createOpenAiAdapter(options: OpenAiOptions): AiAdapter {
         {
           type: "object",
           additionalProperties: false,
-          required: ["title", "keyPoints", "analogy", "groups", "nodes", "edges"],
+          required: ["form", "title", "keyPoints", "analogy", "groups", "nodes", "edges", "steps"],
           properties: {
+            form: { type: "string", enum: ["infographic", "animation"] },
             title: { type: "string" },
             keyPoints: {
               type: "array",
@@ -190,6 +192,7 @@ export function createOpenAiAdapter(options: OpenAiOptions): AiAdapter {
                 properties: { from: { type: "string" }, to: { type: "string" }, label: nullableString },
               },
             },
+            steps: STEPS_JSON_SCHEMA,
           },
         },
         [
@@ -201,6 +204,10 @@ export function createOpenAiAdapter(options: OpenAiOptions): AiAdapter {
           "Diagram: 3-12 nodes with short labels (max ~4 words) showing the Topic's structure or flow;",
           "edges join node ids with an optional short label (a verb such as 'sends to');",
           "groups (optional) cluster related nodes; a node's groupId is a group id or null.",
+          "Edges are numbered e1, e2... in the order you list them.",
+          STEPS_INSTRUCTIONS,
+          "form: 'animation' if the Topic is a process, sequence or flow best understood step by step;",
+          "'infographic' if it is a structure, comparison or set of facts best seen all at once.",
         ].join("\n"),
         [
           `Topic: ${describe(topic)}`,
@@ -209,7 +216,7 @@ export function createOpenAiAdapter(options: OpenAiOptions): AiAdapter {
         ].join("\n"),
       );
       return {
-        form: "infographic",
+        form: result.form,
         title: result.title,
         keyPoints: result.keyPoints.map((k, i) => ({
           id: `kp${i + 1}`,
@@ -223,19 +230,67 @@ export function createOpenAiAdapter(options: OpenAiOptions): AiAdapter {
           nodes: result.nodes,
           edges: result.edges.map((e, i) => ({ id: `e${i + 1}`, ...e })),
         },
-        steps: [],
+        steps: result.steps,
       };
+    },
+
+    async generateExplainerSteps({ topic, content }: GenerateExplainerStepsInput): Promise<ExplainerStep[]> {
+      const result = await structured<{ steps: ExplainerStep[] }>(
+        "explainer_steps",
+        { type: "object", additionalProperties: false, required: ["steps"], properties: { steps: STEPS_JSON_SCHEMA } },
+        [
+          "You turn an Explainer's diagram into an animation a learner steps through at their own pace.",
+          "Use ONLY the Explainer given; never add facts.",
+          STEPS_INSTRUCTIONS,
+        ].join("\n"),
+        [
+          `Topic: ${describe(topic)}`,
+          `Title: ${content.title}`,
+          "Key points:",
+          ...content.keyPoints.map((k) => `- ${k.text}`),
+          "Diagram nodes:",
+          ...content.diagram.nodes.map((n) => `- ${n.id}: ${n.label}`),
+          "Diagram edges:",
+          ...content.diagram.edges.map((e) => `- ${e.id}: ${e.from} -> ${e.to}${e.label ? ` (${e.label})` : ""}`),
+        ].join("\n"),
+      );
+      return result.steps;
     },
   };
 }
 
+const STEPS_JSON_SCHEMA = {
+  type: "array",
+  items: {
+    type: "object",
+    additionalProperties: false,
+    required: ["caption", "highlight"],
+    properties: {
+      caption: { type: "string" },
+      highlight: {
+        type: "object",
+        additionalProperties: false,
+        required: ["nodeIds", "edgeIds"],
+        properties: { nodeIds: { type: "array", items: { type: "string" } }, edgeIds: { type: "array", items: { type: "string" } } },
+      },
+    },
+  },
+};
+
+const STEPS_INSTRUCTIONS = [
+  "steps: 3-10 animation steps in the order a learner should follow them. Each step has a caption",
+  "(one or two plain sentences) and highlights the diagram node ids and edge ids it talks about.",
+].join("\n");
+
 interface GeneratedExplainer {
+  form: "infographic" | "animation";
   title: string;
   keyPoints: { text: string; passages: number[] }[];
   analogy: string | null;
   groups: { id: string; label: string }[];
   nodes: { id: string; label: string; groupId: string | null }[];
   edges: { from: string; to: string; label: string | null }[];
+  steps: ExplainerStep[];
 }
 
 function describe(t: { name: string; description: string | null }): string {
@@ -249,7 +304,13 @@ export function openAiFromEnv(): AiAdapter {
     const missing = async (): Promise<never> => {
       throw new AiError("The AI service is not configured (OPENAI_API_KEY is not set).");
     };
-    return { embed: missing, proposeTopics: missing, confirmTopicMatch: missing, generateExplainer: missing };
+    return {
+      embed: missing,
+      proposeTopics: missing,
+      confirmTopicMatch: missing,
+      generateExplainer: missing,
+      generateExplainerSteps: missing,
+    };
   }
   return createOpenAiAdapter({
     apiKey,

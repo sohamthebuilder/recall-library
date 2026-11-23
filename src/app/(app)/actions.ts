@@ -159,6 +159,15 @@ export async function retryExplainer(topicId: string): Promise<void> {
   revalidatePath(`/topics/${topicId}`);
 }
 
+/** Show the Explainer as an infographic or step by step; the core saves a new version. */
+export async function switchExplainerForm(topicId: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  await requireLearner();
+  const form = formData.get("form") === "animation" ? "animation" : "infographic";
+  const state = await attempt(() => getCore().switchExplainerForm({ topicId, form }));
+  revalidatePath(`/topics/${topicId}`);
+  return state;
+}
+
 export async function deleteTopic(topicId: string): Promise<void> {
   await requireLearner();
   try {

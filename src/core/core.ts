@@ -1,6 +1,12 @@
 import type { Db } from "@/db/types";
 import { chunksOfSource, similarChunks } from "./chunks";
-import { getExplainer, listExplainerVersions, retryExplainer } from "./explainers";
+import {
+  getExplainer,
+  listExplainerVersions,
+  retryExplainer,
+  type SwitchExplainerFormInput,
+  switchExplainerForm,
+} from "./explainers";
 import { jobHandlers } from "./job-handlers";
 import { runJobs, type RunJobsOptions } from "./jobs";
 import type { AiAdapter } from "./ports/ai";
@@ -70,6 +76,7 @@ export function createCore(deps: CoreDeps) {
     explainer: (topicId: string) => getExplainer(deps, topicId),
     explainerVersions: (topicId: string) => listExplainerVersions(deps, topicId),
     retryExplainer: (topicId: string) => retryExplainer(deps, topicId),
+    switchExplainerForm: (input: SwitchExplainerFormInput) => switchExplainerForm(deps, input),
 
     /** Drain the background job queue. See jobs.ts. */
     runJobs: (options?: RunJobsOptions) => runJobs(deps, jobHandlers, options),

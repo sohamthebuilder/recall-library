@@ -1,4 +1,4 @@
-import type { ExplainerDraft } from "../explainer-content";
+import type { ExplainerContent, ExplainerDraft, ExplainerStep } from "../explainer-content";
 
 /**
  * AI adapter: every model call the core makes goes through here.
@@ -27,6 +27,18 @@ export interface AiAdapter {
    * so returning something malformed is safe (it is rejected), just wasteful.
    */
   generateExplainer(input: GenerateExplainerInput): Promise<ExplainerDraft>;
+
+  /**
+   * Animation steps that walk a learner through an existing Explainer's diagram, in order.
+   * Each step highlights some of the diagram's node/edge ids with a caption. Used when an
+   * Explainer that has no steps is switched to the animation form. Validated by the core.
+   */
+  generateExplainerSteps(input: GenerateExplainerStepsInput): Promise<ExplainerStep[]>;
+}
+
+export interface GenerateExplainerStepsInput {
+  topic: { name: string; description: string | null };
+  content: ExplainerContent;
 }
 
 export interface GenerateExplainerInput {
