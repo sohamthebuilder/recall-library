@@ -57,6 +57,12 @@ export interface AiAdapter {
   gradeAnswer(input: GradeAnswerInput): Promise<AnswerGrade>;
 
   /**
+   * Speech to text: the learner's spoken answer to a Recall Prompt, as plain text. `question`
+   * is the prompt being answered, a hint for the words to expect. May return "" for silence.
+   */
+  transcribeAnswer(input: TranscribeAnswerInput): Promise<string>;
+
+  /**
    * Reshape an Explainer as the learner instructs ("use a restaurant analogy", "show the
    * partitions"). Returns the whole new Explainer. Keep key point ids for points that are the
    * same; citations may only name the given passages' chunkIds. Validated by the core.
@@ -101,6 +107,11 @@ export interface ApplyExplainerInstructionInput {
   explainer: ExplainerContent;
   /** The Source passages the current version cites (those whose Source still exists). */
   passages: ExplainerPassage[];
+}
+
+export interface TranscribeAnswerInput {
+  audio: { bytes: Uint8Array; mimeType: string };
+  question: string;
 }
 
 export type ReviewRating = "again" | "hard" | "good" | "easy";

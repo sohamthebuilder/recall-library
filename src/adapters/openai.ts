@@ -16,6 +16,7 @@ import {
   type SuggestedEditDraft,
   type SuggestEditsInput,
   type TopicCandidate,
+  type TranscribeAnswerInput,
 } from "@/core/ports/ai";
 import { EMBEDDING_DIMENSIONS } from "@/db/schema";
 
@@ -24,18 +25,21 @@ import { EMBEDDING_DIMENSIONS } from "@/db/schema";
  * with a JSON-schema response format, so replies are parsed, never scraped.
  *
  * Env: OPENAI_API_KEY (required), OPENAI_MODEL (default below), OPENAI_EMBEDDING_MODEL
- * (default text-embedding-3-small; must produce EMBEDDING_DIMENSIONS-long vectors).
+ * (default text-embedding-3-small; must produce EMBEDDING_DIMENSIONS-long vectors),
+ * OPENAI_TRANSCRIPTION_MODEL (default gpt-4o-mini-transcribe; spoken answers).
  */
 export interface OpenAiOptions {
   apiKey: string;
   model?: string;
   embeddingModel?: string;
+  transcriptionModel?: string;
   baseUrl?: string;
   fetch?: typeof fetch;
 }
 
 const DEFAULT_MODEL = "gpt-4.1-mini";
 const DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small";
+const DEFAULT_TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe";
 /** Topic proposal sees at most this much text; PDFs narrow it further by chapter selection. */
 const MAX_PROPOSAL_CHARS = 120_000;
 
@@ -44,14 +48,18 @@ export function createOpenAiAdapter(options: OpenAiOptions): AiAdapter {
   const embeddingModel = options.embeddingModel || DEFAULT_EMBEDDING_MODEL;
   const baseUrl = options.baseUrl ?? "https://api.openai.com/v1";
   const doFetch = options.fetch ?? fetch;
+  const transcriptionModel = options.transcriptionModel || DEFAULT_TRANSCRIPTION_MODEL;
 
   async function post<T>(path: string, body: unknown): Promise<T> {
     let res: Response;
     try {
       res = await doFetch(`${baseUrl}${path}`, {
         method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${options.apiKey}` },
-        body: JSON.stringify(body),
+        headers:
+          body instanceof FormData
+            ? { authorization: `Bearer ${options.apiKey}` }
+            : { "content-type": "application/json", authorization: `Bearer ${options.apiKey}` },
+        body: body instanceof FormData ? body : JSON.stringify(body),
       });
     } catch {
       throw new AiError("Could not reach the AI service. Try again.");
@@ -356,6 +364,18 @@ export function createOpenAiAdapter(options: OpenAiOptions): AiAdapter {
           answer,
         ].join("\n"),
       );
+    },
+
+    async transcribeAnswer({ audio, question }: TranscribeAnswerInput): Promise<string> {
+      const form = new FormData();
+      const blob = new Blob([audio.bytes as Uint8Array<ArrayBuffer>], { type: audio.mimeType });
+      form.append("file", blob, `answer.${audioExtension(audio.mimeType)}`);
+      form.append("model", transcriptionModel);
+      form.append("response_format", "json");
+      // A hint for vocabulary only; the transcript must be what was said.
+      form.append("prompt", `A learner answering, from memory, the question: ${question}`);
+      const res = await post<{ text?: string }>("/audio/transcriptions", form);
+      return res.text ?? "";
     },
 
     async reconcileRecallPrompts({
@@ -663,6 +683,17 @@ function describe(t: { name: string; description: string | null }): string {
   return t.description ? `${t.name} (${t.description})` : t.name;
 }
 
+/** A file extension OpenAI recognises for this recording's type (it sniffs the format from the name). */
+function audioExtension(mimeType: string): string {
+  const type = mimeType.split(";")[0]!.trim().toLowerCase();
+  if (type.includes("webm")) return "webm";
+  if (type.includes("ogg")) return "ogg";
+  if (type.includes("wav")) return "wav";
+  if (type.includes("mpeg") || type.includes("mp3")) return "mp3";
+  if (type.includes("mp4") || type.includes("m4a") || type.includes("aac")) return "mp4";
+  return "webm";
+}
+
 /** The adapter configured from the environment. */
 export function openAiFromEnv(): AiAdapter {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -678,6 +709,7 @@ export function openAiFromEnv(): AiAdapter {
       generateExplainerSteps: missing,
       generateRecallPrompts: missing,
       gradeAnswer: missing,
+      transcribeAnswer: missing,
       reconcileRecallPrompts: missing,
       suggestEdits: missing,
       applyExplainerInstruction: missing,
@@ -687,5 +719,6 @@ export function openAiFromEnv(): AiAdapter {
     apiKey,
     model: process.env.OPENAI_MODEL,
     embeddingModel: process.env.OPENAI_EMBEDDING_MODEL,
+    transcriptionModel: process.env.OPENAI_TRANSCRIPTION_MODEL,
   });
 }

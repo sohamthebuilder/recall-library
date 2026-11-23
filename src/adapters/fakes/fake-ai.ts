@@ -16,6 +16,7 @@ import {
   type SuggestedEditDraft,
   type SuggestEditsInput,
   type TopicCandidate,
+  type TranscribeAnswerInput,
 } from "@/core/ports/ai";
 import { EMBEDDING_DIMENSIONS } from "@/db/schema";
 
@@ -215,6 +216,33 @@ export class FakeAi implements AiAdapter {
     return (typeof scripted === "function" ? await scripted(input) : scripted) as AnswerGrade;
   }
 
+  // --- transcribeAnswer (#7). Default: "Spoken answer (<n> bytes of <mimeType>)".
+  private readonly scriptedTranscriptions = new Map<string, string>();
+  private readonly transcriptionFailures = new Map<string, string[]>();
+  /** Every transcribeAnswer call, in order. */
+  readonly transcriptionRequests: TranscribeAnswerInput[] = [];
+
+  /** Make `transcribeAnswer` turn audio with exactly these bytes into this text. */
+  scriptTranscription(bytes: Uint8Array, transcript: string): this {
+    this.scriptedTranscriptions.set(audioKey(bytes), transcript);
+    return this;
+  }
+
+  /** Make the next `transcribeAnswer` call for audio with exactly these bytes fail with this reason. */
+  scriptTranscriptionFailure(bytes: Uint8Array, reason: string): this {
+    const key = audioKey(bytes);
+    this.transcriptionFailures.set(key, [...(this.transcriptionFailures.get(key) ?? []), reason]);
+    return this;
+  }
+
+  async transcribeAnswer(input: TranscribeAnswerInput): Promise<string> {
+    this.transcriptionRequests.push(input);
+    const key = audioKey(input.audio.bytes);
+    const failure = this.transcriptionFailures.get(key)?.shift();
+    if (failure !== undefined) throw new AiError(failure);
+    return this.scriptedTranscriptions.get(key) ?? `Spoken answer (${input.audio.bytes.length} bytes of ${input.audio.mimeType})`;
+  }
+
   /**
    * Make `reconcileRecallPrompts` for the Topic with this name return this result (or what the
    * function builds from the request). Need not be valid.
@@ -409,4 +437,8 @@ function defaultEmbedding(text: string): number[] {
   v[0]! += 1e-3; // never the zero vector, even for empty text
   const norm = Math.hypot(...v);
   return v.map((x) => x / norm);
+}
+
+function audioKey(bytes: Uint8Array): string {
+  return Buffer.from(bytes).toString("base64");
 }

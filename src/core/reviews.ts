@@ -298,7 +298,8 @@ function reschedule(kind: ReviewKind, before: MemoryState, rating: ReviewRating,
 }
 
 /** A prompt that can be reviewed now: not deleted, and active. */
-async function reviewablePrompt(db: DbOrTx, promptId: string) {
+/** A live, active prompt (else NotFoundError / ValidationError). */
+export async function reviewablePrompt(db: DbOrTx, promptId: string) {
   const [row] = await db
     .select()
     .from(recallPrompts)

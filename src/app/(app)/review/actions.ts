@@ -28,6 +28,25 @@ export async function submitAnswer(sessionId: string, promptId: string, _prev: R
   return attemptReview(() => getCore().submitReview({ sessionId, promptId, answer: String(formData.get("answer") ?? "") }));
 }
 
+export type TranscriptState = { error: string | null; transcript: string | null };
+
+/** Spoken answer: turn the recording into text for the learner to check and correct. Grades nothing. */
+export async function transcribeSpokenAnswer(promptId: string, formData: FormData): Promise<TranscriptState> {
+  await requireLearner();
+  const audio = formData.get("audio");
+  if (!(audio instanceof Blob)) return { error: "No recording was received. Record again, or type your answer.", transcript: null };
+  try {
+    const { transcript } = await getCore().transcribeAnswer({
+      promptId,
+      audio: { bytes: new Uint8Array(await audio.arrayBuffer()), mimeType: audio.type || "audio/webm" },
+    });
+    return { error: null, transcript };
+  } catch (e) {
+    if (e instanceof ValidationError || e instanceof NotFoundError || e instanceof AiError) return { error: e.message, transcript: null };
+    throw e;
+  }
+}
+
 export async function overruleGrade(reviewId: string, rating: ReviewRating): Promise<ReviewState> {
   await requireLearner();
   const state = await attemptReview(() => getCore().overruleGrade({ reviewId, rating }));

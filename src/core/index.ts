@@ -56,6 +56,8 @@ export type {
 } from "./reviews";
 export { MINUTES_PER_REVIEW } from "./reviews";
 export type { PracticeScope } from "./practice";
+export { MAX_RECORDING_BYTES } from "./spoken-answers";
+export type { Transcript, TranscribeAnswerInput } from "./spoken-answers";
 export type { RunJobsOptions, RunJobsResult } from "./jobs";
 export type {
   AiAdapter,
