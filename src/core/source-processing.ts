@@ -59,13 +59,14 @@ export async function processSource(deps: CoreDeps, { sourceId }: { sourceId: st
           })),
         );
       }
+      await handler.captured?.(tx, deps.clock.now(), source, extraction);
       await onSourceTextCaptured(tx, deps.clock.now(), sourceId);
     });
 
     await setStatus(deps, sourceId, "proposing_topics");
     const captured = { ...source, text, title };
-    const proposalText = handler.proposalText ? await handler.proposalText(deps, captured, extraction) : text;
-    await proposeTopicsForSource(deps, captured, proposalText);
+    if (handler.proposeTopics) await handler.proposeTopics(deps, captured);
+    else await proposeTopicsForSource(deps, captured, text);
 
     await setStatus(deps, sourceId, "ready");
   } catch (e) {

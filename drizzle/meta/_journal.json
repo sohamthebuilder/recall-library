@@ -57,6 +57,13 @@
       "when": 1795168633439,
       "tag": "0007_explainer_versions_immutable",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795169058601,
+      "tag": "0008_pdf_chapters",
+      "breakpoints": true
     }
   ]
 }

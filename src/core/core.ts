@@ -7,6 +7,7 @@ import type { AiAdapter } from "./ports/ai";
 import type { Clock } from "./ports/clock";
 import type { ContentFetcher } from "./ports/content-fetcher";
 import type { FileStore } from "./ports/file-store";
+import { chaptersOfSource, selectChapters } from "./pdf-sources";
 import { addSource, getSource, library, retrySource } from "./sources";
 import { type FindTopicsInput, findTopics, listTags, tagTopic, untagTopic } from "./tags";
 import { importTopics, linkSourceByHand } from "./topic-import";
@@ -44,6 +45,9 @@ export function createCore(deps: CoreDeps) {
     retrySource: (sourceId: string) => retrySource(deps, sourceId),
     sourceChunks: (sourceId: string) => chunksOfSource(deps, sourceId),
     similarChunks: (input: Arg<typeof similarChunks>) => similarChunks(deps, input),
+    /** A PDF's chapters (outline or page ranges) and which have had Topics proposed. */
+    sourceChapters: (sourceId: string) => chaptersOfSource(deps, sourceId),
+    selectChapters: (input: Arg<typeof selectChapters>) => selectChapters(deps, input),
 
     // Topics
     topicProposals: (sourceId: string) => topicProposalsForSource(deps, sourceId),

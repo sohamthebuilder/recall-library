@@ -48,6 +48,21 @@ migrated PGlite database and deterministic fake adapters (`test/harness.ts`).
 4. Run `DATABASE_URL=<neon url> npm run db:migrate` once (and after each schema change).
 5. Deploy.
 
+## Uploading PDFs (books)
+
+A Vercel function accepts at most a 4.5 MB request body, so .md files go through a server
+action but PDFs do not: the browser uploads the PDF straight to Vercel Blob (a *client
+upload*, `@vercel/blob/client`), using a short-lived token from `/api/uploads/pdf` (signed-in
+learner only, `application/pdf`, up to 100 MB). The form then calls the `addUploadedPdf`
+action with the blob's pathname, and the core checks the stored file (it must really be a
+PDF) before adding the Source. Locally this needs `BLOB_READ_WRITE_TOKEN` too. The PDF is
+read with `unpdf` (PDF.js) in the background job; a very large book is read within one job
+run, so keep `maxDuration` in mind on the Hobby plan.
+
+After a PDF is read, its Source page lists its chapters (top-level outline entries, or
+20-page ranges when it has no outline). Topics are proposed only from the chapters you
+select, one AI call per chapter, and you can select more chapters later.
+
 ## Background jobs
 
 Slow work (processing a Source, proposing Topics) runs as background jobs stored in the `jobs`

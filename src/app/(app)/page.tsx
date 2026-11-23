@@ -6,6 +6,7 @@ import { AddUrlForm } from "./add-url-form";
 import { AddYouTubeForm } from "./add-youtube-form";
 import { SourceMeta, sourceDisplayTitle } from "./source-meta";
 import { UploadMarkdownForm } from "./upload-markdown-form";
+import { UploadPdfForm } from "./upload-pdf-form";
 import { RefreshWhileProcessing, StatusBadge } from "./source-status";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,10 @@ export default async function LibraryPage() {
         <section className="panel" aria-labelledby="upload-markdown">
           <h2 id="upload-markdown">Upload a .md file</h2>
           <UploadMarkdownForm />
+        </section>
+        <section className="panel" aria-labelledby="upload-pdf">
+          <h2 id="upload-pdf">Upload a PDF</h2>
+          <UploadPdfForm />
         </section>
       </div>
 

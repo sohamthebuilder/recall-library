@@ -5,6 +5,7 @@ import { getCore } from "@/server/core";
 import { retrySource } from "../../actions";
 import { SourceMeta, sourceDisplayTitle } from "../../source-meta";
 import { RefreshWhileProcessing, StatusBadge } from "../../source-status";
+import { ChapterSelection } from "./chapter-selection";
 import { ProposalCard } from "./proposal-card";
 
 export const dynamic = "force-dynamic";
@@ -27,10 +28,11 @@ export default async function SourcePage({ params }: { params: Promise<{ id: str
     if (e instanceof NotFoundError) notFound();
     throw e;
   }
-  const [proposals, topics, chunks] = await Promise.all([
+  const [proposals, topics, chunks, chapters] = await Promise.all([
     core.topicProposals(id),
     core.topics(),
     source.kind === "youtube" ? core.sourceChunks(id) : Promise.resolve([]),
+    source.kind === "pdf" ? core.sourceChapters(id) : Promise.resolve([]),
   ]);
   const pending = proposals.filter((p) => p.status === "pending");
   const decided = proposals.filter((p) => p.status !== "pending");
@@ -79,8 +81,15 @@ export default async function SourcePage({ params }: { params: Promise<{ id: str
         <h2 id="proposed-topics" style={{ marginTop: 0 }}>
           Proposed Topics
         </h2>
-        {isSourceProcessing(source.status) ? (
+        {source.kind === "pdf" && chapters.length > 0 ? (
+          <ChapterSelection sourceId={source.id} chapters={chapters} />
+        ) : null}
+        {source.kind === "pdf" && source.status === "proposing_topics" ? (
+          <p className="muted">Proposing Topics from the selected chapters…</p>
+        ) : isSourceProcessing(source.status) ? (
           <p className="muted">Topics will appear here once this Source has been read.</p>
+        ) : source.kind === "pdf" && proposals.length === 0 && chapters.length > 0 ? (
+          <p className="muted">Select chapters above to propose Topics from them.</p>
         ) : proposals.length === 0 ? (
           <p className="muted">No Topics were proposed for this Source.</p>
         ) : null}

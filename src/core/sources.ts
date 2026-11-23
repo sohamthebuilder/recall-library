@@ -4,7 +4,8 @@ import type { CoreDeps } from "./core";
 import { NotFoundError, ValidationError } from "./errors";
 import { enqueueJob } from "./jobs";
 import { markdownUpload } from "./source-kinds";
-import { addUploadedSource, type UploadedFile } from "./uploads";
+import { pdfUpload } from "./pdf-sources";
+import { addStoredUploadSource, addUploadedSource, type StoredUpload, type UploadedFile } from "./uploads";
 import { parseYouTubeVideoId, youTubeWatchUrl } from "./youtube";
 
 export type SourceKind = "url" | "youtube" | "pdf" | "markdown" | "note";
@@ -40,12 +41,18 @@ export type AddSourceInput =
   | { kind: "url"; title?: string | null; url: string }
   /** A YouTube video link; its title and transcript are captured while processing. */
   | { kind: "youtube"; url: string }
-  | { kind: "markdown"; file: UploadedFile };
+  | { kind: "markdown"; file: UploadedFile }
+  /**
+   * A PDF (book or paper): either its bytes, or a file the browser already put in the file
+   * store (large books). Its chapters are listed once it is read; see selectChapters.
+   */
+  | { kind: "pdf"; file: UploadedFile }
+  | { kind: "pdf"; storedFile: StoredUpload };
 
 type NewSource = Pick<typeof sources.$inferInsert, "kind" | "title" | "reference" | "text">;
 
 /** Validate the input and work out the new Source's row. One case per Source kind (uploads aside). */
-function newSource(input: Exclude<AddSourceInput, { kind: "markdown" }>): NewSource {
+function newSource(input: Exclude<AddSourceInput, { kind: "markdown" | "pdf" }>): NewSource {
   switch (input.kind) {
     case "note": {
       const text = input.text.trim();
@@ -85,6 +92,11 @@ export function normalizeWebUrl(input: string): string {
 /** Add a Source and start processing it in the background. It begins `pending`. */
 export async function addSource(deps: CoreDeps, input: AddSourceInput): Promise<Source> {
   if (input.kind === "markdown") return addUploadedSource(deps, input.file, markdownUpload);
+  if (input.kind === "pdf") {
+    return "storedFile" in input
+      ? addStoredUploadSource(deps, input.storedFile, pdfUpload)
+      : addUploadedSource(deps, input.file, pdfUpload);
+  }
   const values = newSource(input);
   const now = deps.clock.now();
 

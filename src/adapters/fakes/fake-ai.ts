@@ -36,6 +36,8 @@ export class FakeAi implements AiAdapter {
 
   /** Every confirmTopicMatch call, in order: which existing Topics were offered for which candidate. */
   readonly matchRequests: ConfirmTopicMatchInput[] = [];
+  /** Every `proposeTopics` call, in order. */
+  readonly proposalRequests: ProposeTopicsInput[] = [];
 
   /** Make `embed` return this vector for this exact text. */
   scriptEmbedding(text: string, vector: number[]): this {
@@ -95,7 +97,9 @@ export class FakeAi implements AiAdapter {
     return texts.map((t) => this.scriptedEmbeddings.get(t) ?? defaultEmbedding(t));
   }
 
-  async proposeTopics({ text }: ProposeTopicsInput): Promise<TopicCandidate[]> {
+  async proposeTopics(input: ProposeTopicsInput): Promise<TopicCandidate[]> {
+    this.proposalRequests.push(input);
+    const { text } = input;
     const failure = this.proposalFailures.get(text)?.shift();
     if (failure !== undefined) throw new AiError(failure);
     const scripted = this.scriptedProposals.get(text);

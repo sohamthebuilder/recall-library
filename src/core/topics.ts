@@ -54,8 +54,19 @@ export async function proposeTopicsForSource(
   deps: CoreDeps,
   source: { id: string; title: string | null },
   text: string,
+  options: { keepPending?: boolean } = {},
 ): Promise<void> {
-  const candidates = dedupeByName(await deps.ai.proposeTopics({ sourceTitle: source.title, text }));
+  let candidates = dedupeByName(await deps.ai.proposeTopics({ sourceTitle: source.title, text }));
+  // Adding to earlier proposals (a PDF's next chapters): skip names this Source already has.
+  const earlier = options.keepPending
+    ? await deps.db
+        .select({ name: topicProposals.name, ordinal: topicProposals.ordinal })
+        .from(topicProposals)
+        .where(eq(topicProposals.sourceId, source.id))
+    : [];
+  const earlierNames = new Set(earlier.map((p) => p.name.toLowerCase()));
+  candidates = candidates.filter((c) => !earlierNames.has(c.name.toLowerCase()));
+  const firstOrdinal = earlier.reduce((max, p) => Math.max(max, p.ordinal + 1), 0);
   const embeddings = candidates.length ? await deps.ai.embed(candidates.map(topicEmbeddingText)) : [];
 
   const matches: (string | null)[] = [];
@@ -65,14 +76,16 @@ export async function proposeTopicsForSource(
 
   const now = deps.clock.now();
   await deps.db.transaction(async (tx) => {
-    await tx
-      .delete(topicProposals)
-      .where(and(eq(topicProposals.sourceId, source.id), eq(topicProposals.status, "pending")));
+    if (!options.keepPending) {
+      await tx
+        .delete(topicProposals)
+        .where(and(eq(topicProposals.sourceId, source.id), eq(topicProposals.status, "pending")));
+    }
     if (candidates.length === 0) return;
     await tx.insert(topicProposals).values(
       candidates.map((c, i) => ({
         sourceId: source.id,
-        ordinal: i,
+        ordinal: firstOrdinal + i,
         name: c.name,
         description: c.description,
         matchedTopicId: matches[i],
