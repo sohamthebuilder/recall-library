@@ -1051,3 +1051,14 @@ a.due-start {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Practice (#8) */
+.practice-start {
+  margin: 0 0 16px;
+}
+.topic-header .practice-start {
+  margin: 0;
+}
+.review-history .badge {
+  margin-left: 8px;
+}

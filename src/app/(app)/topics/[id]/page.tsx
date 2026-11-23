@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { NotFoundError, sourceDisplayName, sourceKindLabel } from "@/core";
 import { getCore } from "@/server/core";
+import { PracticeButton } from "../../practice/practice-button";
 import { deleteTopic, untagTopic } from "../../actions";
 import { AddTagForm } from "./add-tag-form";
 import { DeleteTopicButton } from "./delete-topic-button";
@@ -38,9 +39,12 @@ export default async function TopicPage({ params }: { params: Promise<{ id: stri
         </p>
         <div className="row-between">
           <h2 id="topic-name">{topic.name}</h2>
-          <form action={deleteTopic.bind(null, topic.id)}>
-            <DeleteTopicButton name={topic.name} />
-          </form>
+          <div className="button-row">
+            <PracticeButton scope={{ topicId: topic.id }} label="Practise" />
+            <form action={deleteTopic.bind(null, topic.id)}>
+              <DeleteTopicButton name={topic.name} />
+            </form>
+          </div>
         </div>
         {topic.description ? <p className="muted">{topic.description}</p> : null}
         <h3 className="subheading">Tags</h3>
