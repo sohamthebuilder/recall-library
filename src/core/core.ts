@@ -8,6 +8,7 @@ import {
   getExplainerVersion,
   restoreExplainerVersion,
 } from "./explainer-editing";
+import { type EditExplainerByInstructionInput, editExplainerByInstruction } from "./explainer-instruction";
 import {
   countExplainersCitingSource,
   getExplainer,
@@ -105,6 +106,8 @@ export function createCore(deps: CoreDeps) {
     switchExplainerForm: (input: SwitchExplainerFormInput) => switchExplainerForm(deps, input),
     /** Put the Explainer in the learner's own words: title, key points, analogy, diagram labels. */
     editExplainerText: (input: EditExplainerTextInput) => editExplainerText(deps, input),
+    /** Reshape the Explainer by telling the AI what to change; saved as a new version (cause `instruction`). */
+    editExplainerByInstruction: (input: EditExplainerByInstructionInput) => editExplainerByInstruction(deps, input),
     /** One version (current or earlier) with the passages it cites. */
     explainerVersion: (ref: ExplainerVersionRef) => getExplainerVersion(deps, ref),
     /** The current key points next to the Source passages they cite, and what the AI first wrote. */

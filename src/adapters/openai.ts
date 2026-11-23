@@ -2,6 +2,7 @@ import type { ExplainerContent, ExplainerDraft, ExplainerStep } from "@/core/exp
 import {
   AiError,
   type AiAdapter,
+  type ApplyExplainerInstructionInput,
   type ConfirmTopicMatchInput,
   type GenerateExplainerInput,
   type GenerateExplainerStepsInput,
@@ -352,7 +353,96 @@ export function createOpenAiAdapter(options: OpenAiOptions): AiAdapter {
         add: result.add,
       };
     },
+
+    async applyExplainerInstruction({
+      topic,
+      instruction,
+      explainer,
+      passages,
+    }: ApplyExplainerInstructionInput): Promise<ExplainerDraft> {
+      // Passages are numbered for the model and mapped back to chunk ids here; ids it drops or
+      // invents for key points and edges are replaced with fresh ones.
+      const number = new Map(passages.map((p, i) => [p.chunkId, i + 1]));
+      const current = {
+        title: explainer.title,
+        keyPoints: explainer.keyPoints.map((k) => ({
+          id: k.id,
+          text: k.text,
+          passages: k.citations.flatMap((c) => (number.has(c.chunkId) ? [number.get(c.chunkId)!] : [])),
+        })),
+        analogy: explainer.analogy,
+        groups: explainer.diagram.groups,
+        nodes: explainer.diagram.nodes,
+        edges: explainer.diagram.edges,
+        steps: explainer.steps,
+      };
+      const result = await structured<InstructedExplainer>(
+        "explainer",
+        INSTRUCTED_EXPLAINER_JSON_SCHEMA,
+        [
+          "You revise an Explainer (a condensed, visual explanation of a Topic) as the learner instructs.",
+          "Return the whole revised Explainer. Change only what the instruction asks; keep everything else as it is.",
+          "Never add facts beyond the numbered passages and the current Explainer.",
+          "keyPoints: keep a point's id when it is the same point (reworded or not); use null for a new point.",
+          "Each key point cites the numbers of the passages it comes from (only the numbers given).",
+          "analogy: one short everyday analogy or null. Diagram nodes have short labels (max ~4 words);",
+          "edges join node ids, keep an edge's id when it is the same edge, else null; a node's groupId is a group id or null.",
+          "steps walk through the diagram: keep them in step with the diagram, highlighting only node and edge ids that exist.",
+        ].join("\n"),
+        [
+          `Topic: ${describe(topic)}`,
+          "",
+          ...passages.map((p, i) => `[${i + 1}]${p.sourceTitle ? ` (${p.sourceTitle})` : ""}\n${p.text}\n`),
+          "Current Explainer (JSON):",
+          JSON.stringify(current),
+          "",
+          `Instruction: ${instruction}`,
+        ].join("\n"),
+      );
+      // Keep each id the model gives unless it is blank or repeated; those get a fresh one.
+      const keyPointIds = new Set<string>(result.keyPoints.flatMap((k) => (k.id ? [k.id] : [])));
+      const edgeIds = new Set<string>(result.edges.flatMap((e) => (e.id ? [e.id] : [])));
+      const claim = (all: Set<string>, seen: Set<string>, id: string | null, prefix: string) => {
+        if (id && !seen.has(id)) {
+          seen.add(id);
+          return id;
+        }
+        let n = all.size + 1;
+        while (all.has(`${prefix}${n}`)) n++;
+        all.add(`${prefix}${n}`);
+        return `${prefix}${n}`;
+      };
+      const seenKeyPoints = new Set<string>();
+      const seenEdges = new Set<string>();
+      return {
+        form: explainer.form,
+        title: result.title,
+        keyPoints: result.keyPoints.map((k) => ({
+          id: claim(keyPointIds, seenKeyPoints, k.id, "kp"),
+          text: k.text,
+          // An out-of-range number becomes an unknown chunk, so the core rejects the draft.
+          citations: k.passages.map((n) => ({ chunkId: passages[n - 1]?.chunkId ?? `unknown-passage-${n}` })),
+        })),
+        analogy: result.analogy || null,
+        diagram: {
+          groups: result.groups,
+          nodes: result.nodes,
+          edges: result.edges.map(({ id, ...e }) => ({ id: claim(edgeIds, seenEdges, id, "e"), ...e })),
+        },
+        steps: result.steps,
+      };
+    },
   };
+}
+
+interface InstructedExplainer {
+  title: string;
+  keyPoints: { id: string | null; text: string; passages: number[] }[];
+  analogy: string | null;
+  groups: { id: string; label: string }[];
+  nodes: { id: string; label: string; groupId: string | null }[];
+  edges: { id: string | null; from: string; to: string; label: string | null }[];
+  steps: ExplainerStep[];
 }
 
 const RECALL_PROMPTS_JSON_SCHEMA = {
@@ -400,6 +490,55 @@ const STEPS_JSON_SCHEMA = {
   },
 };
 
+const NULLABLE_STRING = { type: ["string", "null"] };
+
+const INSTRUCTED_EXPLAINER_JSON_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["title", "keyPoints", "analogy", "groups", "nodes", "edges", "steps"],
+  properties: {
+    title: { type: "string" },
+    keyPoints: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "text", "passages"],
+        properties: { id: NULLABLE_STRING, text: { type: "string" }, passages: { type: "array", items: { type: "integer" } } },
+      },
+    },
+    analogy: NULLABLE_STRING,
+    groups: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "label"],
+        properties: { id: { type: "string" }, label: { type: "string" } },
+      },
+    },
+    nodes: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "label", "groupId"],
+        properties: { id: { type: "string" }, label: { type: "string" }, groupId: NULLABLE_STRING },
+      },
+    },
+    edges: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "from", "to", "label"],
+        properties: { id: NULLABLE_STRING, from: { type: "string" }, to: { type: "string" }, label: NULLABLE_STRING },
+      },
+    },
+    steps: STEPS_JSON_SCHEMA,
+  },
+};
+
 const STEPS_INSTRUCTIONS = [
   "steps: 3-10 animation steps in the order a learner should follow them. Each step has a caption",
   "(one or two plain sentences) and highlights the diagram node ids and edge ids it talks about.",
@@ -435,6 +574,7 @@ export function openAiFromEnv(): AiAdapter {
       generateExplainerSteps: missing,
       generateRecallPrompts: missing,
       reconcileRecallPrompts: missing,
+      applyExplainerInstruction: missing,
     };
   }
   return createOpenAiAdapter({

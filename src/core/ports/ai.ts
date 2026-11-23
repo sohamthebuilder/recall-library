@@ -47,6 +47,22 @@ export interface AiAdapter {
    * `add` holds new prompts for content no kept or learner prompt covers. Validated by the core.
    */
   reconcileRecallPrompts(input: ReconcileRecallPromptsInput): Promise<RecallPromptReconciliation>;
+
+  /**
+   * Reshape an Explainer as the learner instructs ("use a restaurant analogy", "show the
+   * partitions"). Returns the whole new Explainer. Keep key point ids for points that are the
+   * same; citations may only name the given passages' chunkIds. Validated by the core.
+   */
+  applyExplainerInstruction(input: ApplyExplainerInstructionInput): Promise<ExplainerDraft>;
+}
+
+export interface ApplyExplainerInstructionInput {
+  topic: { name: string; description: string | null };
+  instruction: string;
+  /** The Explainer's current version. */
+  explainer: ExplainerContent;
+  /** The Source passages the current version cites (those whose Source still exists). */
+  passages: ExplainerPassage[];
 }
 
 export interface ReconcileRecallPromptsInput {
