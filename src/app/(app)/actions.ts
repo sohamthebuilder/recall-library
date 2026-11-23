@@ -85,6 +85,35 @@ export async function uploadMarkdown(_prev: FormState, formData: FormData): Prom
   return state;
 }
 
+/**
+ * Add a PDF the browser has already uploaded to the file store (see /api/uploads/pdf):
+ * books are larger than a server action's request body allows, so the bytes never pass
+ * through here. Type and size rules live in the core.
+ */
+export async function addUploadedPdf(upload: { key: string; name: string }): Promise<FormState & { sourceId?: string }> {
+  await requireLearner();
+  let sourceId: string | undefined;
+  const state = await attempt(async () => {
+    sourceId = (await getCore().addSource({ kind: "pdf", storedFile: { key: String(upload.key), name: String(upload.name) } })).id;
+  });
+  if (state.ok) {
+    runJobsAfterResponse();
+    revalidatePath("/");
+  }
+  return { ...state, sourceId };
+}
+
+/** Select chapters of a PDF to propose Topics from (checkboxes named `chapterId`). */
+export async function selectChapters(sourceId: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  await requireLearner();
+  const chapterIds = formData.getAll("chapterId").map(String);
+  const state = await attempt(() => getCore().selectChapters({ sourceId, chapterIds }));
+  if (state.ok) runJobsAfterResponse();
+  revalidatePath(`/sources/${sourceId}`);
+  revalidatePath("/");
+  return state;
+}
+
 /** Thin adapter from the form to `addSource` for a YouTube link. */
 export async function addYouTubeVideo(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireLearner();

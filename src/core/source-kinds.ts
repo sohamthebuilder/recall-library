@@ -1,4 +1,6 @@
+import type { DbOrTx } from "@/db/types";
 import type { CoreDeps } from "./core";
+import { pdf } from "./pdf-sources";
 import { ValidationError } from "./errors";
 import { readUploadedFile, type UploadRule } from "./uploads";
 import { ContentFetchError, type TranscriptCue, type YouTubeTranscript, type FetchedArticle } from "./ports/content-fetcher";
@@ -30,24 +32,31 @@ export interface Extraction {
  * embeds and proposes Topics the same way for every kind.
  *
  * To add a Source kind: write a handler here, register it in `sourceKindHandlers`, and
- * extend AddSourceInput in sources.ts. Throw ContentFetchError (or AiError) with a message
+ * extend AddSourceInput in sources.ts. A handler may live in its own module (pdf-sources.ts). Throw ContentFetchError (or AiError) with a message
  * the learner can act on; it becomes the Source's failure reason.
  */
-export interface SourceKindHandler<Raw = unknown> {
+export interface SourceKindHandler<Raw = unknown, E extends Extraction = Extraction> {
   /** Get the raw material: download the page, read the stored file, fetch the transcript. */
   fetch(deps: CoreDeps, source: SourceRow): Promise<Raw>;
   /** Turn the raw material into anchored text. */
-  extract(deps: CoreDeps, source: SourceRow, raw: Raw): Promise<Extraction>;
+  extract(deps: CoreDeps, source: SourceRow, raw: Raw): Promise<E>;
   /**
-   * The part of the captured text to propose Topics from. Defaults to all of it; a PDF
-   * narrows this to the chapters the learner selected.
+   * Keep anything else the kind found while extracting (a PDF's chapters). Runs inside the
+   * transaction that stores the text and chunks.
    */
-  proposalText?(deps: CoreDeps, source: SourceRow, extraction: Extraction): Promise<string>;
+  captured?(tx: DbOrTx, now: Date, source: SourceRow, extraction: E): Promise<void>;
+  /**
+   * Propose Topics in place of the default (from all the captured text). A PDF proposes only
+   * from the chapters the learner selected, so this does nothing until they select some.
+   */
+  proposeTopics?(deps: CoreDeps, source: SourceRow): Promise<void>;
 }
 
-/** Helper that keeps a handler's Raw type consistent between fetch and extract. */
-function defineSourceKind<Raw>(handler: SourceKindHandler<Raw>): SourceKindHandler {
-  return handler as SourceKindHandler;
+/** Helper that keeps a handler's Raw and Extraction types consistent between its methods. */
+export function defineSourceKind<Raw, E extends Extraction = Extraction>(
+  handler: SourceKindHandler<Raw, E>,
+): SourceKindHandler {
+  return handler as unknown as SourceKindHandler;
 }
 
 /** A Note's text is typed in, so there is nothing to fetch and one segment to extract. */
@@ -135,4 +144,5 @@ export const sourceKindHandlers: Partial<Record<SourceKind, SourceKindHandler>> 
   url,
   markdown,
   youtube,
+  pdf,
 };

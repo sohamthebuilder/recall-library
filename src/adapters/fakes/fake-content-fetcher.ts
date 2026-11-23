@@ -1,6 +1,7 @@
 import {
   ContentFetchError,
   type ContentFetcher,
+  type ExtractedPdf,
   type FetchedArticle,
   type YouTubeTranscript,
 } from "@/core/ports/content-fetcher";
@@ -8,6 +9,7 @@ import {
 /** Deterministic content fetcher fake: only URLs scripted by the test resolve. */
 export class FakeContentFetcher implements ContentFetcher {
   private readonly articles = new Map<string, FetchedArticle | { error: string }>();
+  private readonly pdfs = new Map<string, ExtractedPdf | { error: string }>();
   private readonly transcripts = new Map<string, YouTubeTranscript | null | { error: string }>();
 
   scriptArticle(url: string, article: FetchedArticle): this {
@@ -42,6 +44,24 @@ export class FakeContentFetcher implements ContentFetcher {
     const scripted = this.transcripts.get(videoId);
     if (scripted === undefined) throw new ContentFetchError(`FakeContentFetcher: no transcript scripted for ${videoId}`);
     if (scripted && "error" in scripted) throw new ContentFetchError(scripted.error);
+    return scripted;
+  }
+
+  /** Script what `extractPdf` returns for a file whose bytes are exactly this (UTF-8) text. */
+  scriptPdf(fileText: string, pdf: ExtractedPdf): this {
+    this.pdfs.set(fileText, pdf);
+    return this;
+  }
+
+  scriptPdfFailure(fileText: string, reason: string): this {
+    this.pdfs.set(fileText, { error: reason });
+    return this;
+  }
+
+  async extractPdf(bytes: Uint8Array): Promise<ExtractedPdf> {
+    const scripted = this.pdfs.get(new TextDecoder().decode(bytes));
+    if (!scripted) throw new ContentFetchError("FakeContentFetcher: no PDF scripted for these bytes");
+    if ("error" in scripted) throw new ContentFetchError(scripted.error);
     return scripted;
   }
 }

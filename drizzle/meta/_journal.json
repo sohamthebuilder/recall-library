@@ -64,6 +64,13 @@
       "when": 1795168846766,
       "tag": "0008_recall_prompts",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795413731989,
+      "tag": "0009_pdf_chapters",
+      "breakpoints": true
     }
   ]
 }

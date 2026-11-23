@@ -14,6 +14,7 @@ import type { AiAdapter } from "./ports/ai";
 import type { Clock } from "./ports/clock";
 import type { ContentFetcher } from "./ports/content-fetcher";
 import type { FileStore } from "./ports/file-store";
+import { chaptersOfSource, selectChapters } from "./pdf-sources";
 import { addLink } from "./quick-add";
 import {
   addRecallPrompt,
@@ -67,6 +68,9 @@ export function createCore(deps: CoreDeps) {
     explainersCitingSource: (sourceId: string) => countExplainersCitingSource(deps, sourceId),
     sourceChunks: (sourceId: string) => chunksOfSource(deps, sourceId),
     similarChunks: (input: Arg<typeof similarChunks>) => similarChunks(deps, input),
+    /** A PDF's chapters (outline or page ranges) and which have had Topics proposed. */
+    sourceChapters: (sourceId: string) => chaptersOfSource(deps, sourceId),
+    selectChapters: (input: Arg<typeof selectChapters>) => selectChapters(deps, input),
 
     // Topics
     topicProposals: (sourceId: string) => topicProposalsForSource(deps, sourceId),

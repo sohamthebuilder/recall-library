@@ -38,14 +38,15 @@ export { RECALL_PROMPT_KINDS, recallPromptKindLabel } from "./recall-prompt-kind
 export type { RunJobsOptions, RunJobsResult } from "./jobs";
 export type { AiAdapter, ExplainerPassage, GenerateExplainerInput, TopicCandidate } from "./ports/ai";
 export { AiError } from "./ports/ai";
-export type { ContentFetcher, FetchedArticle } from "./ports/content-fetcher";
+export type { ContentFetcher, ExtractedPdf, FetchedArticle, PdfOutlineEntry } from "./ports/content-fetcher";
 export { ContentFetchError } from "./ports/content-fetcher";
 export type { FileStore, StoredFile } from "./ports/file-store";
 export type { Clock } from "./ports/clock";
 export { systemClock } from "./ports/clock";
 export { isSourceProcessing } from "./source-status";
 export { sourceDisplayName, sourceKindLabel } from "./source-display";
-export type { UploadedFile } from "./uploads";
+export type { StoredUpload, UploadedFile } from "./uploads";
+export type { Chapter, ChapterStatus } from "./pdf-sources";
 export { citationUrl } from "./citations";
 export { isYouTubeUrl, parseYouTubeVideoId, youTubeWatchUrl } from "./youtube";
 export { findLink } from "./links";

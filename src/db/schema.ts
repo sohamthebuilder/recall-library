@@ -70,6 +70,31 @@ export const sourceChunks = pgTable(
   (t) => [uniqueIndex("source_chunks_source_ordinal").on(t.sourceId, t.ordinal)],
 );
 
+/**
+ * A chapter of a PDF Source: an entry of its outline, or a page range when it has none.
+ * The learner selects chapters to propose Topics from (the whole text is chunked anyway).
+ * `selected_at` set and `topics_proposed_at` null = waiting for Topic proposal.
+ */
+export const sourceChapters = pgTable(
+  "source_chapters",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "cascade" }),
+    ordinal: integer("ordinal").notNull(),
+    title: text("title").notNull(),
+    /** 1-based, inclusive. */
+    startPage: integer("start_page").notNull(),
+    endPage: integer("end_page").notNull(),
+    selectedAt: timestamp("selected_at", { withTimezone: true }),
+    topicsProposedAt: timestamp("topics_proposed_at", { withTimezone: true }),
+    /** Why proposing Topics from this chapter failed; it can be selected again. */
+    failureReason: text("failure_reason"),
+  },
+  (t) => [uniqueIndex("source_chapters_source_ordinal").on(t.sourceId, t.ordinal)],
+);
+
 export const topics = pgTable(
   "topics",
   {
