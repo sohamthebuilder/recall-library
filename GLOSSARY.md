@@ -1,4 +1,4 @@
-# books-rag
+# recall-library
 
 A personal learning tool for one learner: it ingests content from many places and makes sure what was learned is remembered and can be revised at any time.
 
