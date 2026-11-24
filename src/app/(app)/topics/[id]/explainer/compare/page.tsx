@@ -65,11 +65,22 @@ export default async function CompareExplainerPage({ params }: { params: Promise
   );
 }
 
+/** A cited passage can be a long stretch of a Source; show its start and let the learner open the rest. */
+const PREVIEW_CHARS = 320;
+
 function Passage({ passage }: { passage: CitedPassage }) {
   if (passage.status === "source_removed") return <blockquote className="passage muted">Source removed.</blockquote>;
+  const long = passage.text.length > PREVIEW_CHARS;
   return (
     <blockquote className="passage">
-      <p>{passage.text}</p>
+      {long ? (
+        <details className="passage-more">
+          <summary>{passage.text.slice(0, PREVIEW_CHARS).trimEnd()}…</summary>
+          <p>{passage.text}</p>
+        </details>
+      ) : (
+        <p>{passage.text}</p>
+      )}
       <footer>
         <Link href={`/sources/${passage.sourceId}`}>{passage.sourceTitle ?? "Untitled Source"}</Link>
       </footer>

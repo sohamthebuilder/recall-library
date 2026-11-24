@@ -2,6 +2,8 @@ import type { ReviewRating } from "@/core";
 import { getCore } from "@/server/core";
 
 const RATING_LABEL: Record<ReviewRating, string> = { again: "Again", hard: "Hard", good: "Good", easy: "Easy" };
+/** The side column shows the latest few; the grades over time matter more than every answer. */
+const SHOWN = 5;
 const dateFormat = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short" });
 
 /** A Topic's Review history, newest first: how well the learner is remembering it. */
@@ -16,7 +18,7 @@ export async function ReviewHistory({ topicId }: { topicId: string }) {
         <p className="muted">No Reviews yet.</p>
       ) : (
         <ul className="review-history">
-          {reviews.map((r) => (
+          {reviews.slice(0, SHOWN).map((r) => (
             <li key={r.id}>
               <div className="row-between">
                 <strong>
@@ -40,6 +42,11 @@ export async function ReviewHistory({ topicId }: { topicId: string }) {
           ))}
         </ul>
       )}
+      {reviews.length > SHOWN ? (
+        <p className="source-meta">
+          Showing the latest {SHOWN} of {reviews.length} Reviews.
+        </p>
+      ) : null}
     </section>
   );
 }
