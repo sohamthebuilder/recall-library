@@ -15,12 +15,12 @@ the right times, so it stays in long-term memory instead of fading after a week.
 - [The problem](#the-problem)
 - [Who it's for](#who-its-for)
 - [The idea in one picture](#the-idea-in-one-picture)
+- [How it was built](#how-it-was-built)
 - [A walk through the product](#a-walk-through-the-product)
 - [User stories](#user-stories)
 - [Key product decisions](#key-product-decisions)
 - [Architecture](#architecture)
 - [Tech stack](#tech-stack)
-- [How it was built](#how-it-was-built)
 - [What's next](#whats-next)
 - [For developers: run it yourself](#for-developers-run-it-yourself)
 
@@ -67,6 +67,52 @@ flowchart LR
 
 The words in bold are used consistently in the code, the UI and the docs. They are defined in
 [`GLOSSARY.md`](GLOSSARY.md).
+
+## How it was built
+
+This was built as an AI product-management exercise: I acted as the PM and used AI coding agents
+(Claude Code) as the engineering team. The process was the interesting part.
+
+```mermaid
+flowchart LR
+    A["Problem &<br/>vocabulary"] --> B["Clickable<br/>prototype"] --> C["Spec with<br/>68 user stories"] --> D["19 tickets"] --> E["Built in parallel<br/>by agents"] --> F["Code review"] --> G["Usability pass<br/>(5 phases)"]
+```
+
+1. **Agree the words first.** Before any code, I wrote a [glossary](GLOSSARY.md) (Source, Topic,
+   Explainer, Recall Prompt, Review…) with the terms to avoid. This one page removed most of the
+   ambiguity between me and the agents, and the same names appear in the UI and the code.
+2. **Decide the hard trade-off up front.** The biggest risk was the AI overwriting the learner's
+   corrections, so that became [ADR 0001](docs/adr/0001-explainer-is-the-source-of-truth.md)
+   before anything was built.
+3. **Prototype the flow.** A throwaway clickable prototype compared three app shapes (tab bar,
+   single feed, chat) on laptop and phone before committing to one.
+4. **Write the spec as user stories.** [Issue #1](https://github.com/sohamthebuilder/books-rag/issues/1)
+   holds the problem, 68 user stories, implementation decisions, a testing strategy and an explicit
+   out-of-scope list.
+5. **Slice into vertical tickets.** The spec became 19 GitHub issues (#2–#20), each a thin slice
+   a user could see, starting with a "walking skeleton" (sign in and add a Note) and ending with
+   Suggested Edits. Issues use triage labels (`ready-for-agent`, `ready-for-human`…) so it is
+   clear who picks each one up.
+6. **Build in parallel.** Agents worked on separate tickets at the same time in isolated git
+   worktrees, each merging into a shared v1 branch
+   ([PR #21](https://github.com/sohamthebuilder/books-rag/pull/21)).
+7. **Test behaviour, not internals.** Around 450 automated tests exercise the application core
+   against a real (in-process) database with scripted fake AI, e.g. "a new Source on an edited
+   Topic produces Suggested Edits, never a new Explainer version".
+8. **Review, then use it.** A code-review pass fixed issues across tickets. Then I used the app
+   end to end against the user stories ([issue #22](https://github.com/sohamthebuilder/books-rag/issues/22)).
+   Almost every story worked, but the app was hard to use: home was six stacked forms, and things
+   waiting on me were hidden inside individual pages. That led to a five-phase usability pass
+   ([PR #28](https://github.com/sohamthebuilder/books-rag/pull/28)): the Today screen and a
+   "Needs you" inbox, a focused Review session, a restructured Topic page, Library tables that
+   scale, and a visual system for phone.
+
+**What I'd call out as lessons:**
+- *A shared vocabulary is the cheapest spec.* Most agent mistakes came from fuzzy words, not
+  fuzzy logic.
+- *"Every story is built" is not "usable."* The usability pass was a separate, necessary phase.
+- *Design the AI's limits as product features.* Approval steps, overrulable grades and version
+  history are what make an AI learning tool trustworthy.
 
 ## A walk through the product
 
@@ -250,52 +296,6 @@ In plain terms:
 | Auth | **Auth.js** with Google sign-in, one allowed email | No passwords; private on the public internet |
 | Validation | **Zod** | Every AI response is checked before it is saved |
 | Testing | **Vitest** + **PGlite** (in-process Postgres with pgvector) | Real database in tests, no server or network needed |
-
-## How it was built
-
-This was built as an AI product-management exercise: I acted as the PM and used AI coding agents
-(Claude Code) as the engineering team. The process was the interesting part.
-
-```mermaid
-flowchart LR
-    A["Problem &<br/>vocabulary"] --> B["Clickable<br/>prototype"] --> C["Spec with<br/>68 user stories"] --> D["19 tickets"] --> E["Built in parallel<br/>by agents"] --> F["Code review"] --> G["Usability pass<br/>(5 phases)"]
-```
-
-1. **Agree the words first.** Before any code, I wrote a [glossary](GLOSSARY.md) (Source, Topic,
-   Explainer, Recall Prompt, Review…) with the terms to avoid. This one page removed most of the
-   ambiguity between me and the agents, and the same names appear in the UI and the code.
-2. **Decide the hard trade-off up front.** The biggest risk was the AI overwriting the learner's
-   corrections, so that became [ADR 0001](docs/adr/0001-explainer-is-the-source-of-truth.md)
-   before anything was built.
-3. **Prototype the flow.** A throwaway clickable prototype compared three app shapes (tab bar,
-   single feed, chat) on laptop and phone before committing to one.
-4. **Write the spec as user stories.** [Issue #1](https://github.com/sohamthebuilder/books-rag/issues/1)
-   holds the problem, 68 user stories, implementation decisions, a testing strategy and an explicit
-   out-of-scope list.
-5. **Slice into vertical tickets.** The spec became 19 GitHub issues (#2–#20), each a thin slice
-   a user could see, starting with a "walking skeleton" (sign in and add a Note) and ending with
-   Suggested Edits. Issues use triage labels (`ready-for-agent`, `ready-for-human`…) so it is
-   clear who picks each one up.
-6. **Build in parallel.** Agents worked on separate tickets at the same time in isolated git
-   worktrees, each merging into a shared v1 branch
-   ([PR #21](https://github.com/sohamthebuilder/books-rag/pull/21)).
-7. **Test behaviour, not internals.** Around 450 automated tests exercise the application core
-   against a real (in-process) database with scripted fake AI, e.g. "a new Source on an edited
-   Topic produces Suggested Edits, never a new Explainer version".
-8. **Review, then use it.** A code-review pass fixed issues across tickets. Then I used the app
-   end to end against the user stories ([issue #22](https://github.com/sohamthebuilder/books-rag/issues/22)).
-   Almost every story worked, but the app was hard to use: home was six stacked forms, and things
-   waiting on me were hidden inside individual pages. That led to a five-phase usability pass
-   ([PR #28](https://github.com/sohamthebuilder/books-rag/pull/28)): the Today screen and a
-   "Needs you" inbox, a focused Review session, a restructured Topic page, Library tables that
-   scale, and a visual system for phone.
-
-**What I'd call out as lessons:**
-- *A shared vocabulary is the cheapest spec.* Most agent mistakes came from fuzzy words, not
-  fuzzy logic.
-- *"Every story is built" is not "usable."* The usability pass was a separate, necessary phase.
-- *Design the AI's limits as product features.* Approval steps, overrulable grades and version
-  history are what make an AI learning tool trustworthy.
 
 ## What's next
 
