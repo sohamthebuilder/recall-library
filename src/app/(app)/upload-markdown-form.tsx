@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState } from "react";
 import { uploadMarkdown, type FormState } from "./actions";
 
 const initialState: FormState = { error: null, ok: false };
@@ -12,14 +12,9 @@ const initialState: FormState = { error: null, ok: false };
  */
 export function UploadMarkdownForm() {
   const [state, action, pending] = useActionState(uploadMarkdown, initialState);
-  const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (state.ok) formRef.current?.reset();
-  }, [state]);
 
   return (
-    <form ref={formRef} action={action}>
+    <form action={action}>
       <label htmlFor="markdown-file">File</label>
       <input
         id="markdown-file"

@@ -1,5 +1,5 @@
-import { desc, eq } from "drizzle-orm";
-import { sources } from "@/db/schema";
+import { count, desc, eq, sql } from "drizzle-orm";
+import { sources, topicProposals, topicSources } from "@/db/schema";
 import type { CoreDeps } from "./core";
 import { NotFoundError, ValidationError } from "./errors";
 import { enqueueJob } from "./jobs";
@@ -14,6 +14,17 @@ import type { SourceStatus } from "./source-status";
 export type { SourceStatus };
 
 export type SourceRow = typeof sources.$inferSelect;
+
+/**
+ * The columns sourceDisplayName needs, for selecting alongside other data. Only the start of
+ * the text is read (a Note is named from its first heading or line), never a whole book.
+ */
+export const sourceNameColumns = {
+  kind: sources.kind,
+  title: sources.title,
+  reference: sources.reference,
+  text: sql<string | null>`left(${sources.text}, 2000)`,
+};
 
 export interface Source {
   id: string;
@@ -30,9 +41,17 @@ export interface Source {
   failureReason: string | null;
 }
 
+/** A Source as listed in the Library. */
+export interface LibrarySource extends Source {
+  /** How many of its proposed Topics still wait for the learner to approve, merge or reject. */
+  topicsAwaitingApproval: number;
+  /** How many Topics draw on it. */
+  topicCount: number;
+}
+
 export interface Library {
   /** Newest first. */
-  sources: Source[];
+  sources: LibrarySource[];
 }
 
 export type AddSourceInput =
@@ -112,7 +131,28 @@ export async function addSource(deps: CoreDeps, input: AddSourceInput): Promise<
 
 export async function library(deps: CoreDeps): Promise<Library> {
   const rows = await deps.db.select().from(sources).orderBy(desc(sources.addedAt));
-  return { sources: rows.map(toSource) };
+  const [awaiting, linked] = await Promise.all([
+    topicsAwaitingApprovalBySource(deps),
+    deps.db.select({ sourceId: topicSources.sourceId, n: count() }).from(topicSources).groupBy(topicSources.sourceId),
+  ]);
+  const topicCounts = new Map(linked.map((r) => [r.sourceId, r.n]));
+  return {
+    sources: rows.map((row) => ({
+      ...toSource(row),
+      topicsAwaitingApproval: awaiting.get(row.id) ?? 0,
+      topicCount: topicCounts.get(row.id) ?? 0,
+    })),
+  };
+}
+
+/** Pending Topic proposals per Source (only Sources that have some). */
+export async function topicsAwaitingApprovalBySource(deps: CoreDeps): Promise<Map<string, number>> {
+  const rows = await deps.db
+    .select({ sourceId: topicProposals.sourceId, n: count() })
+    .from(topicProposals)
+    .where(eq(topicProposals.status, "pending"))
+    .groupBy(topicProposals.sourceId);
+  return new Map(rows.map((r) => [r.sourceId, r.n]));
 }
 
 export async function getSource(deps: CoreDeps, sourceId: string): Promise<Source> {

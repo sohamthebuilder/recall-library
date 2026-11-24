@@ -340,6 +340,8 @@ export const reviewSessions = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     kind: reviewKind("kind").notNull().default("scheduled"),
     promptIds: jsonb("prompt_ids").$type<string[]>().notNull(),
+    /** Prompts the learner skipped in this session: not graded, still due. */
+    skippedPromptIds: jsonb("skipped_prompt_ids").$type<string[]>().notNull().default([]),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
   },

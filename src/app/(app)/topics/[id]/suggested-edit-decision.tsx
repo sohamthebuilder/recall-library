@@ -21,7 +21,7 @@ export function SuggestedEditDecision({ topicId, suggestedEditId }: { topicId: s
     <div>
       <div className="button-row">
         <form action={accept}>
-          <button type="submit" className="primary" disabled={busy}>
+          <button type="submit" className="accept" disabled={busy}>
             {accepting ? "Accepting…" : "Accept"}
           </button>
         </form>

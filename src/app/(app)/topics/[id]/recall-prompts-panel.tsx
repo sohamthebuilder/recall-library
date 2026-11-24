@@ -7,6 +7,8 @@ import {
   resumeRecallPrompt,
   suspendRecallPrompt,
 } from "../../actions";
+import { ConfirmButton } from "../../confirm-button";
+import { MoreMenu } from "../../more-menu";
 import { EditRecallPrompt } from "./edit-recall-prompt";
 import { RecallPromptForm } from "./recall-prompt-form";
 
@@ -16,7 +18,18 @@ const originLabel: Record<RecallPromptOrigin, string> = {
   learner_written: "Written by you",
 };
 
-/** A Topic's Recall Prompts, beside its Explainer: list, edit, pause/resume, delete, write your own. */
+const dayFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" });
+
+/** "due now", "due 3 Mar", or "paused". */
+function nextDue(prompt: RecallPrompt, now: Date): string {
+  if (prompt.state === "suspended") return "Paused";
+  return prompt.due <= now ? "Due now" : `Due ${dayFormat.format(prompt.due)}`;
+}
+
+/**
+ * A Topic's Recall Prompts as a compact list (kind · question · next due). Each expands to
+ * its expected key points and Edit; Pause and Delete sit in its "⋯" menu.
+ */
 export function RecallPromptsPanel({
   topicId,
   explainer,
@@ -27,10 +40,11 @@ export function RecallPromptsPanel({
   prompts: RecallPrompt[];
 }) {
   const shown = prompts.filter((p) => p.state !== "retired");
+  const now = new Date();
   return (
     <section aria-labelledby="topic-recall-prompts">
       <h2 id="topic-recall-prompts" className="aside-heading">
-        Recall Prompts
+        Recall Prompts <span className="aside-count">{shown.length}</span>
       </h2>
       {shown.length === 0 ? (
         explainer?.status === "ready" ? (
@@ -44,47 +58,52 @@ export function RecallPromptsPanel({
           <p className="muted">Recall Prompts are made once the Explainer is ready.</p>
         )
       ) : (
-        <ul className="recall-prompt-list">
+        <ul className="prompt-rows">
           {shown.map((prompt) => (
-            <li key={prompt.id} className={`panel recall-prompt${prompt.state === "suspended" ? " is-paused" : ""}`}>
-              <div className="recall-prompt-meta">
-                <span className="badge">{recallPromptKindLabel(prompt.kind)}</span>
-                <span className="source-meta">
-                  {originLabel[prompt.origin]}
-                  {prompt.state === "suspended" ? " · Paused" : ""}
-                </span>
-              </div>
-              <p className="recall-prompt-question">{prompt.question}</p>
+            <li key={prompt.id} className={prompt.state === "suspended" ? "prompt-row is-paused" : "prompt-row"}>
               <details>
-                <summary>Expected key points</summary>
-                <ul className="plain-list">
-                  {prompt.expectedPoints.map((point, i) => (
-                    <li key={i}>{point}</li>
-                  ))}
-                </ul>
+                <summary>
+                  <span className="prompt-row-meta">
+                    {recallPromptKindLabel(prompt.kind)} · {nextDue(prompt, now)}
+                  </span>
+                  <span className="prompt-row-question">{prompt.question}</span>
+                </summary>
+                <div className="prompt-row-body">
+                  <h3 className="compare-heading">Expected key points</h3>
+                  <ul className="plain-list">
+                    {prompt.expectedPoints.map((point, i) => (
+                      <li key={i}>{point}</li>
+                    ))}
+                  </ul>
+                  <p className="source-meta">{originLabel[prompt.origin]}</p>
+                  <div className="button-row">
+                    <EditRecallPrompt topicId={topicId} prompt={prompt} />
+                    <MoreMenu label={`More actions for this Recall Prompt`}>
+                      {prompt.state === "suspended" ? (
+                        <form action={resumeRecallPrompt.bind(null, topicId, prompt.id)}>
+                          <button type="submit">Resume</button>
+                        </form>
+                      ) : (
+                        <form action={suspendRecallPrompt.bind(null, topicId, prompt.id)}>
+                          <button type="submit">Pause</button>
+                        </form>
+                      )}
+                      <form action={deleteRecallPrompt.bind(null, topicId, prompt.id)}>
+                        <ConfirmButton
+                          label="Delete"
+                          ariaLabel={`Delete Recall Prompt: ${prompt.question}`}
+                          confirmMessage="Delete this Recall Prompt? Its Review history stays with the Topic."
+                        />
+                      </form>
+                    </MoreMenu>
+                  </div>
+                </div>
               </details>
-              <div className="button-row">
-                <EditRecallPrompt topicId={topicId} prompt={prompt} />
-                {prompt.state === "suspended" ? (
-                  <form action={resumeRecallPrompt.bind(null, topicId, prompt.id)}>
-                    <button type="submit">Resume</button>
-                  </form>
-                ) : (
-                  <form action={suspendRecallPrompt.bind(null, topicId, prompt.id)}>
-                    <button type="submit">Pause</button>
-                  </form>
-                )}
-                <form action={deleteRecallPrompt.bind(null, topicId, prompt.id)}>
-                  <button type="submit" className="danger" aria-label={`Delete Recall Prompt: ${prompt.question}`}>
-                    Delete
-                  </button>
-                </form>
-              </div>
             </li>
           ))}
         </ul>
       )}
-      <details className="recall-prompt-add">
+      <details className="aside-disclosure">
         <summary>Write your own Recall Prompt</summary>
         <RecallPromptForm action={addRecallPrompt.bind(null, topicId)} submitLabel="Add" />
       </details>

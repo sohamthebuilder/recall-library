@@ -19,6 +19,8 @@ import {
 } from "./explainers";
 import { jobGiveUpHandlers, jobHandlers } from "./job-handlers";
 import { runJobs, type RunJobsOptions } from "./jobs";
+import { needsYou } from "./needs-you";
+import { topicMemory } from "./topic-memory";
 import type { AiAdapter } from "./ports/ai";
 import type { Clock } from "./ports/clock";
 import type { ContentFetcher } from "./ports/content-fetcher";
@@ -39,7 +41,10 @@ import {
   dueRecallPrompts,
   overruleGrade,
   reviewSession,
+  reviewSummary,
+  skipPrompt,
   startReview,
+  undoReview,
   submitReview,
   topicReviews,
 } from "./reviews";
@@ -88,6 +93,8 @@ export function createCore(deps: CoreDeps) {
     /** Quick add / Share menu: a pasted or shared link goes to the YouTube or blog URL flow. */
     addLink: (input: Arg<typeof addLink>) => addLink(deps, input),
     library: () => library(deps),
+    /** What waits for the learner: Topics to approve, Suggested Edits, failed Sources (Today's "Needs you"). */
+    needsYou: () => needsYou(deps),
     source: (sourceId: string) => getSource(deps, sourceId),
     retrySource: (sourceId: string) => retrySource(deps, sourceId),
     /** Delete a Source; Explainers citing it are left unchanged ("Source removed"). */
@@ -109,6 +116,8 @@ export function createCore(deps: CoreDeps) {
     topic: (topicId: string) => getTopic(deps, topicId),
     deleteTopic: (topicId: string) => deleteTopic(deps, topicId),
     importTopics: (list: string) => importTopics(deps, list),
+    /** Per Topic with active prompts: how many are due today, next due, last reviewed, FSRS strength. */
+    topicMemory: (options?: DueOptions) => topicMemory(deps, options),
     linkSourceToTopic: (input: Arg<typeof linkSourceByHand>) => linkSourceByHand(deps, input),
 
     // Tags
@@ -166,10 +175,16 @@ export function createCore(deps: CoreDeps) {
     reviewSession: () => reviewSession(deps),
     /** Spoken answers (#7): audio to text, for the learner to correct before `submitReview`. Grades nothing. */
     transcribeAnswer: (input: Arg<typeof transcribeAnswer>) => transcribeAnswer(deps, input),
+    /** What a session came to: reviewed, skipped, grades, what comes back soon, the weakest Topic. */
+    reviewSummary: (sessionId: string) => reviewSummary(deps, sessionId),
+    /** Move on in the open session without grading the current prompt; it stays due. */
+    skipPrompt: (input: Arg<typeof skipPrompt>) => skipPrompt(deps, input),
     /** Grade a typed answer and reschedule the prompt with the rating. */
     submitReview: (input: Arg<typeof submitReview>) => submitReview(deps, input),
     /** Replace a Review's rating; the final rating reschedules the prompt. */
     overruleGrade: (input: Arg<typeof overruleGrade>) => overruleGrade(deps, input),
+    /** Take back a grade given in the open session: the prompt is current again, its schedule as before. */
+    undoReview: (reviewId: string) => undoReview(deps, reviewId),
     /** A Topic's Review history, newest first (deleted prompts' Reviews included). */
     topicReviews: (topicId: string) => topicReviews(deps, topicId),
 

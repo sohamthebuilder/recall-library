@@ -52,7 +52,7 @@ export function ChapterSelection({ sourceId, chapters }: { sourceId: string; cha
       ) : null}
 
       {selectable.length > 0 ? (
-        <button className="primary" type="submit" disabled={pending}>
+        <button type="submit" disabled={pending}>
           {pending ? "Selecting…" : "Propose Topics from selected chapters"}
         </button>
       ) : (

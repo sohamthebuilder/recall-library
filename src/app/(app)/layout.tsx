@@ -1,34 +1,32 @@
-import Link from "next/link";
 import { requireLearner, signOut } from "@/auth";
+import { getCore } from "@/server/core";
+import { learnerTimeZone } from "@/server/time-zone";
+import { AppNav } from "./app-nav";
 
-/** Shell for every signed-in screen. */
+/** Shell for every signed-in screen: the nav (with what needs you and what's due) and the page. */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const session = await requireLearner();
+  await requireLearner();
+  const core = getCore();
+  const [needsYou, due] = await Promise.all([core.needsYou(), core.dueRecallPrompts({ timeZone: learnerTimeZone() })]);
 
   return (
-    <>
-      <header className="shell-header">
-        <nav className="shell-nav" aria-label="Main">
-          <h1>
-            <Link href="/">books-rag</Link>
-          </h1>
-          <Link href="/">Library</Link>
-          <Link href="/topics">Topics</Link>
-          <Link href="/review">Review</Link>
-        </nav>
-        <form
-          action={async () => {
-            "use server";
-            await signOut({ redirectTo: "/signin" });
-          }}
-        >
-          <span className="muted" style={{ marginRight: 12, fontSize: "0.85rem" }}>
-            {session.user?.email}
-          </span>
-          <button type="submit">Sign out</button>
-        </form>
-      </header>
+    <div className="shell">
+      <AppNav
+        counts={{ needsYou: needsYou.total, due: due.prompts.length }}
+        signOut={
+          <form
+            action={async () => {
+              "use server";
+              await signOut({ redirectTo: "/signin" });
+            }}
+          >
+            <button type="submit" className="link-button">
+              Sign out
+            </button>
+          </form>
+        }
+      />
       <main className="shell-main">{children}</main>
-    </>
+    </div>
   );
 }

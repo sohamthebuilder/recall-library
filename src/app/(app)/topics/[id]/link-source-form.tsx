@@ -18,8 +18,12 @@ export function LinkSourceForm({
   if (sources.length === 0) return null;
 
   return (
+    <details className="aside-disclosure">
+      <summary>Link a Source from your Library</summary>
     <form action={action}>
-      <label htmlFor="link-source">Link a Source from your Library</label>
+      <label htmlFor="link-source" className="visually-hidden">
+        Source to link
+      </label>
       <select id="link-source" name="sourceId" required defaultValue="">
         <option value="" disabled>
           Choose a Source…
@@ -41,5 +45,6 @@ export function LinkSourceForm({
         {pending ? "Linking…" : "Link Source"}
       </button>
     </form>
+    </details>
   );
 }

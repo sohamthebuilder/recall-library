@@ -50,7 +50,7 @@ export async function transcribeSpokenAnswer(promptId: string, formData: FormDat
 export async function overruleGrade(reviewId: string, rating: ReviewRating): Promise<ReviewState> {
   await requireLearner();
   const state = await attemptReview(() => getCore().overruleGrade({ reviewId, rating }));
-  revalidatePath("/");
+  revalidatePath("/", "layout");
   return state;
 }
 
@@ -69,23 +69,20 @@ export async function editPromptInReview(promptId: string, _prev: FormState, for
     if (e instanceof ValidationError || e instanceof NotFoundError) return { error: e.message, ok: false };
     throw e;
   }
-  revalidatePath("/review");
-  revalidatePath("/practice");
+  revalidatePath("/", "layout");
   return { error: null, ok: true };
 }
 
 export async function pausePromptInReview(promptId: string): Promise<void> {
   await requireLearner();
   await ignoreGone(() => getCore().suspendRecallPrompt(promptId));
-  revalidatePath("/review");
-  revalidatePath("/practice");
+  revalidatePath("/", "layout");
 }
 
 export async function deletePromptInReview(promptId: string): Promise<void> {
   await requireLearner();
   await ignoreGone(() => getCore().deleteRecallPrompt(promptId));
-  revalidatePath("/review");
-  revalidatePath("/practice");
+  revalidatePath("/", "layout");
 }
 
 async function ignoreGone(op: () => Promise<unknown>): Promise<void> {
@@ -94,4 +91,30 @@ async function ignoreGone(op: () => Promise<unknown>): Promise<void> {
   } catch (e) {
     if (!(e instanceof ValidationError || e instanceof NotFoundError)) throw e;
   }
+}
+
+/** Move on without grading the current prompt (it stays due). Says whether the session is over. */
+export async function skipInReview(sessionId: string, promptId: string): Promise<{ error: string | null; finished: boolean }> {
+  await requireLearner();
+  try {
+    const session = await getCore().skipPrompt({ sessionId, promptId });
+    revalidatePath("/", "layout");
+    return { error: null, finished: session === null };
+  } catch (e) {
+    if (e instanceof ValidationError || e instanceof NotFoundError) return { error: e.message, finished: false };
+    throw e;
+  }
+}
+
+/** Take back the last grade of the open session: that prompt is asked again. */
+export async function undoLastGrade(reviewId: string): Promise<{ error: string | null }> {
+  await requireLearner();
+  try {
+    await getCore().undoReview(reviewId);
+  } catch (e) {
+    if (e instanceof ValidationError || e instanceof NotFoundError) return { error: e.message };
+    throw e;
+  }
+  revalidatePath("/", "layout");
+  return { error: null };
 }

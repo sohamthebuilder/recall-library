@@ -30,7 +30,7 @@ function FailureRow({ topicId, failure }: { topicId: string; failure: SuggestedE
     <li>
       <p>
         Couldn&apos;t check{" "}
-        <Link href={`/sources/${failure.source.id}`}>{failure.source.title ?? "Untitled Source"}</Link> for Suggested
+        <Link href={`/sources/${failure.source.id}`}>{failure.source.name}</Link> for Suggested
         Edits. <span className="muted">{failure.reason}</span>
       </p>
       {state.ok ? (

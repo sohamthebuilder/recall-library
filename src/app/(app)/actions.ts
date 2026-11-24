@@ -24,46 +24,31 @@ async function attempt(op: () => Promise<unknown>): Promise<FormState> {
 /** Thin adapter from the form to `addSource`; all rules live in the core. */
 export async function addNote(_prev: AddNoteState, formData: FormData): Promise<AddNoteState> {
   await requireLearner();
-  const state = await attempt(() =>
+  return added(() =>
     getCore().addSource({
       kind: "note",
       title: String(formData.get("title") ?? ""),
       text: String(formData.get("text") ?? ""),
     }),
   );
-  if (state.ok) {
-    runJobsAfterResponse();
-    revalidatePath("/");
-  }
-  return state;
+}
+
+/** Add a Source, then go to its page so the learner sees its status. */
+async function added(add: () => Promise<{ id: string }>): Promise<FormState> {
+  let sourceId = "";
+  const state = await attempt(async () => {
+    sourceId = (await add()).id;
+  });
+  if (!state.ok) return state;
+  runJobsAfterResponse();
+  revalidatePath("/", "layout");
+  redirect(`/sources/${sourceId}`);
 }
 
 /** Quick add (home screen box and the Share menu): the core routes the link to the YouTube or blog URL flow. */
 export async function addLink(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireLearner();
-  const state = await attempt(() => getCore().addLink({ text: String(formData.get("link") ?? "") }));
-  if (state.ok) {
-    runJobsAfterResponse();
-    revalidatePath("/");
-  }
-  return state;
-}
-
-/** Thin adapter from the link form to `addSource`. */
-export async function addUrl(_prev: FormState, formData: FormData): Promise<FormState> {
-  await requireLearner();
-  const state = await attempt(() =>
-    getCore().addSource({
-      kind: "url",
-      title: String(formData.get("title") ?? ""),
-      url: String(formData.get("url") ?? ""),
-    }),
-  );
-  if (state.ok) {
-    runJobsAfterResponse();
-    revalidatePath("/");
-  }
-  return state;
+  return added(() => getCore().addLink({ text: String(formData.get("link") ?? "") }));
 }
 
 /** The uploaded file from a form's `file` field, as the core takes it (empty if none was chosen). */
@@ -77,12 +62,7 @@ async function uploadedFile(formData: FormData): Promise<UploadedFile> {
 export async function uploadMarkdown(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireLearner();
   const file = await uploadedFile(formData);
-  const state = await attempt(() => getCore().addSource({ kind: "markdown", file }));
-  if (state.ok) {
-    runJobsAfterResponse();
-    revalidatePath("/");
-  }
-  return state;
+  return added(() => getCore().addSource({ kind: "markdown", file }));
 }
 
 /**
@@ -98,7 +78,7 @@ export async function addUploadedPdf(upload: { key: string; name: string }): Pro
   });
   if (state.ok) {
     runJobsAfterResponse();
-    revalidatePath("/");
+    revalidatePath("/", "layout");
   }
   return { ...state, sourceId };
 }
@@ -109,19 +89,7 @@ export async function selectChapters(sourceId: string, _prev: FormState, formDat
   const chapterIds = formData.getAll("chapterId").map(String);
   const state = await attempt(() => getCore().selectChapters({ sourceId, chapterIds }));
   if (state.ok) runJobsAfterResponse();
-  revalidatePath(`/sources/${sourceId}`);
-  revalidatePath("/");
-  return state;
-}
-
-/** Thin adapter from the form to `addSource` for a YouTube link. */
-export async function addYouTubeVideo(_prev: FormState, formData: FormData): Promise<FormState> {
-  await requireLearner();
-  const state = await attempt(() => getCore().addSource({ kind: "youtube", url: String(formData.get("url") ?? "") }));
-  if (state.ok) {
-    runJobsAfterResponse();
-    revalidatePath("/");
-  }
+  revalidatePath("/", "layout");
   return state;
 }
 
@@ -129,8 +97,7 @@ export async function retrySource(sourceId: string): Promise<void> {
   await requireLearner();
   const state = await attempt(() => getCore().retrySource(sourceId));
   if (state.ok) runJobsAfterResponse();
-  revalidatePath(`/sources/${sourceId}`);
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }
 
 /** Delete a Source (the learner has confirmed), then go back to the Library. */
@@ -141,9 +108,8 @@ export async function deleteSource(sourceId: string): Promise<void> {
   } catch (e) {
     if (!(e instanceof NotFoundError)) throw e;
   }
-  revalidatePath("/");
-  revalidatePath("/topics", "layout");
-  redirect("/");
+  revalidatePath("/", "layout");
+  redirect("/library");
 }
 
 /** Approve (optionally renamed), merge into an existing Topic, or reject a proposed Topic. */
@@ -156,15 +122,16 @@ export async function decideTopicProposal(
   await requireLearner();
   const core = getCore();
   const decision = String(formData.get("decision") ?? "");
+  let topic: { id: string; sourceCount: number } | null = null;
   const state = await attempt(async () => {
     if (decision === "approve") {
       const name = String(formData.get("name") ?? "").trim();
       const proposed = String(formData.get("proposedName") ?? "");
-      await core.approveTopic({ proposalId, name: name && name !== proposed ? name : undefined });
+      topic = await core.approveTopic({ proposalId, name: name && name !== proposed ? name : undefined });
     } else if (decision === "merge") {
       const intoTopicId = String(formData.get("intoTopicId") ?? "");
       if (!intoTopicId) throw new ValidationError("Choose the Topic to merge into.");
-      await core.mergeTopic({ proposalId, intoTopicId });
+      topic = await core.mergeTopic({ proposalId, intoTopicId });
     } else if (decision === "reject") {
       await core.rejectTopic(proposalId);
     } else {
@@ -172,8 +139,12 @@ export async function decideTopicProposal(
     }
   });
   if (state.ok) runJobsAfterResponse();
-  revalidatePath(`/sources/${sourceId}`);
-  revalidatePath("/topics");
+  revalidatePath("/", "layout");
+  if (state.ok && topic) {
+    // The card goes away once decided, so the Source page says what happened (see `decided`).
+    const { id, sourceCount } = topic as { id: string; sourceCount: number };
+    redirect(`/sources/${sourceId}?decided=${sourceCount > 1 ? "linked" : "created"}&topic=${id}#proposed-topics`);
+  }
   return state;
 }
 
@@ -181,8 +152,7 @@ export async function decideTopicProposal(
 export async function tagTopic(topicId: string, _prev: FormState, formData: FormData): Promise<FormState> {
   await requireLearner();
   const state = await attempt(() => getCore().tagTopic({ topicId, name: String(formData.get("name") ?? "") }));
-  revalidatePath(`/topics/${topicId}`);
-  revalidatePath("/topics");
+  revalidatePath("/", "layout");
   return state;
 }
 
@@ -190,15 +160,14 @@ export async function tagTopic(topicId: string, _prev: FormState, formData: Form
 export async function untagTopic(topicId: string, tagId: string): Promise<void> {
   await requireLearner();
   await attempt(() => getCore().untagTopic({ topicId, tagId }));
-  revalidatePath(`/topics/${topicId}`);
-  revalidatePath("/topics");
+  revalidatePath("/", "layout");
 }
 
 export async function retryExplainer(topicId: string): Promise<void> {
   await requireLearner();
   const state = await attempt(() => getCore().retryExplainer(topicId));
   if (state.ok) runJobsAfterResponse();
-  revalidatePath(`/topics/${topicId}`);
+  revalidatePath("/", "layout");
 }
 
 /** Show the Explainer as an infographic or step by step; the core saves a new version. */
@@ -207,7 +176,7 @@ export async function switchExplainerForm(topicId: string, _prev: FormState, for
   const form = formData.get("form") === "animation" ? "animation" : "infographic";
   const state = await attempt(() => getCore().switchExplainerForm({ topicId, form }));
   if (state.ok) runJobsAfterResponse();
-  revalidatePath(`/topics/${topicId}`);
+  revalidatePath("/", "layout");
   return state;
 }
 
@@ -246,7 +215,7 @@ export async function editExplainerText(
   );
   if (state.ok) {
     runJobsAfterResponse();
-    revalidatePath(`/topics/${topicId}`);
+    revalidatePath("/", "layout");
     redirect(`/topics/${topicId}`);
   }
   return state;
@@ -275,7 +244,7 @@ export async function editExplainerByInstruction(
     newVersionId = explainer.current?.id ?? null;
   });
   if (state.ok) runJobsAfterResponse();
-  revalidatePath(`/topics/${topicId}`);
+  revalidatePath("/", "layout");
   return { ...state, previousVersionId: state.ok ? baseVersionId : null, newVersionId };
 }
 
@@ -288,7 +257,7 @@ export async function restoreExplainerVersion(topicId: string, versionId: string
   const state = await attempt(() => getCore().restoreExplainerVersion({ topicId, versionId }));
   if (!state.ok) return state;
   runJobsAfterResponse();
-  revalidatePath(`/topics/${topicId}`);
+  revalidatePath("/", "layout");
   redirect(`/topics/${topicId}`);
 }
 
@@ -299,7 +268,7 @@ export async function deleteTopic(topicId: string): Promise<void> {
   } catch (e) {
     if (!(e instanceof NotFoundError)) throw e;
   }
-  revalidatePath("/topics");
+  revalidatePath("/", "layout");
   redirect("/topics");
 }
 
@@ -314,7 +283,7 @@ export async function importTopics(_prev: ImportTopicsState, formData: FormData)
     message = `Added ${created.length} Topic${created.length === 1 ? "" : "s"}.`;
     if (skipped.length) message += ` Skipped ${skipped.length} already in your Library: ${skipped.join(", ")}.`;
   });
-  revalidatePath("/topics");
+  revalidatePath("/", "layout");
   return { ...state, message };
 }
 
@@ -327,8 +296,7 @@ export async function linkSourceToTopic(topicId: string, _prev: FormState, formD
     await getCore().linkSourceToTopic({ topicId, sourceId });
   });
   if (state.ok) runJobsAfterResponse();
-  revalidatePath(`/topics/${topicId}`);
-  revalidatePath("/topics");
+  revalidatePath("/", "layout");
   return state;
 }
 
@@ -345,7 +313,7 @@ function recallPromptWording(formData: FormData) {
 export async function addRecallPrompt(topicId: string, _prev: FormState, formData: FormData): Promise<FormState> {
   await requireLearner();
   const state = await attempt(() => getCore().addRecallPrompt({ topicId, ...recallPromptWording(formData) }));
-  revalidatePath(`/topics/${topicId}`);
+  revalidatePath("/", "layout");
   return state;
 }
 
@@ -357,33 +325,33 @@ export async function editRecallPrompt(
 ): Promise<FormState> {
   await requireLearner();
   const state = await attempt(() => getCore().editRecallPrompt({ promptId, ...recallPromptWording(formData) }));
-  revalidatePath(`/topics/${topicId}`);
+  revalidatePath("/", "layout");
   return state;
 }
 
 export async function suspendRecallPrompt(topicId: string, promptId: string): Promise<void> {
   await requireLearner();
   await attempt(() => getCore().suspendRecallPrompt(promptId));
-  revalidatePath(`/topics/${topicId}`);
+  revalidatePath("/", "layout");
 }
 
 export async function resumeRecallPrompt(topicId: string, promptId: string): Promise<void> {
   await requireLearner();
   await attempt(() => getCore().resumeRecallPrompt(promptId));
-  revalidatePath(`/topics/${topicId}`);
+  revalidatePath("/", "layout");
 }
 
 export async function deleteRecallPrompt(topicId: string, promptId: string): Promise<void> {
   await requireLearner();
   await attempt(() => getCore().deleteRecallPrompt(promptId));
-  revalidatePath(`/topics/${topicId}`);
+  revalidatePath("/", "layout");
 }
 
 export async function generateRecallPrompts(topicId: string): Promise<void> {
   await requireLearner();
   const state = await attempt(() => getCore().generateRecallPrompts(topicId));
   if (state.ok) runJobsAfterResponse();
-  revalidatePath(`/topics/${topicId}`);
+  revalidatePath("/", "layout");
 }
 
 /** Accept a Suggested Edit (#20): the core saves a new Explainer version, then Recall Prompts are reconciled. */
@@ -391,8 +359,7 @@ export async function acceptSuggestedEdit(topicId: string, suggestedEditId: stri
   await requireLearner();
   const state = await attempt(() => getCore().acceptSuggestedEdit(suggestedEditId));
   if (state.ok) runJobsAfterResponse();
-  revalidatePath(`/topics/${topicId}`);
-  revalidatePath("/topics");
+  revalidatePath("/", "layout");
   return state;
 }
 
@@ -401,7 +368,7 @@ export async function retrySuggestedEdits(topicId: string, sourceId: string, _pr
   await requireLearner();
   const state = await attempt(() => getCore().retrySuggestedEdits({ topicId, sourceId }));
   if (state.ok) runJobsAfterResponse();
-  revalidatePath(`/topics/${topicId}`);
+  revalidatePath("/", "layout");
   return state;
 }
 
@@ -409,7 +376,6 @@ export async function retrySuggestedEdits(topicId: string, sourceId: string, _pr
 export async function rejectSuggestedEdit(topicId: string, suggestedEditId: string, _prev: FormState): Promise<FormState> {
   await requireLearner();
   const state = await attempt(() => getCore().rejectSuggestedEdit(suggestedEditId));
-  revalidatePath(`/topics/${topicId}`);
-  revalidatePath("/topics");
+  revalidatePath("/", "layout");
   return state;
 }

@@ -11,9 +11,9 @@ export default async function PracticePage() {
   if (!session) {
     return (
       <section className="panel review-empty" aria-labelledby="practice-heading">
-        <h2 id="practice-heading">Nothing to practise</h2>
+        <h2 id="practice-heading">Nothing to practice</h2>
         <p className="muted">
-          Practise a Topic or a Tag from its page whenever you like, even when nothing is due. Only an Again changes when a
+          Practice a Topic or a Tag from its page whenever you like, even when nothing is due. Only an Again changes when a
           prompt comes back.
         </p>
         <p>

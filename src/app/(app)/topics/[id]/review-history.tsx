@@ -1,7 +1,9 @@
-import type { ReviewRating } from "@/core";
+import type { Review, ReviewRating } from "@/core";
 import { getCore } from "@/server/core";
 
 const RATING_LABEL: Record<ReviewRating, string> = { again: "Again", hard: "Hard", good: "Good", easy: "Easy" };
+/** The side column shows the latest few; the rest open on request. */
+const SHOWN = 5;
 const dateFormat = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short" });
 
 /** A Topic's Review history, newest first: how well the learner is remembering it. */
@@ -16,30 +18,40 @@ export async function ReviewHistory({ topicId }: { topicId: string }) {
         <p className="muted">No Reviews yet.</p>
       ) : (
         <ul className="review-history">
-          {reviews.map((r) => (
-            <li key={r.id}>
-              <div className="row-between">
-                <strong>
-                  {RATING_LABEL[r.rating]}
-                  {r.kind === "practice" ? <span className="badge">Practice</span> : null}
-                  {r.overruled ? <span className="muted"> (overruled {RATING_LABEL[r.aiRating]})</span> : null}
-                </strong>
-                <time className="source-meta" dateTime={r.reviewedAt.toISOString()}>
-                  {dateFormat.format(r.reviewedAt)}
-                </time>
-              </div>
-              <p className="muted" style={{ margin: "4px 0 0" }}>
-                {r.question}
-              </p>
-              {r.pointsMissed.length > 0 ? (
-                <p className="source-meta" style={{ margin: "4px 0 0" }}>
-                  Missed: {r.pointsMissed.join("; ")}
-                </p>
-              ) : null}
-            </li>
-          ))}
+          {reviews.slice(0, SHOWN).map(reviewItem)}
         </ul>
       )}
+      {reviews.length > SHOWN ? (
+        <details className="aside-disclosure">
+          <summary>Show all {reviews.length} Reviews</summary>
+          <ul className="review-history">{reviews.slice(SHOWN).map(reviewItem)}</ul>
+        </details>
+      ) : null}
     </section>
+  );
+}
+
+function reviewItem(r: Review) {
+  return (
+    <li key={r.id}>
+      <div className="row-between">
+        <strong>
+          {RATING_LABEL[r.rating]}
+          {r.kind === "practice" ? <span className="badge">Practice</span> : null}
+          {r.overruled ? <span className="muted"> (overruled {RATING_LABEL[r.aiRating]})</span> : null}
+        </strong>
+        <time className="source-meta" dateTime={r.reviewedAt.toISOString()}>
+          {dateFormat.format(r.reviewedAt)}
+        </time>
+      </div>
+      <p className="muted" style={{ margin: "4px 0 0" }}>
+        {r.question}
+      </p>
+      {r.pointsMissed.length > 0 ? (
+        <p className="source-meta" style={{ margin: "4px 0 0" }}>
+          Missed: {r.pointsMissed.join("; ")}
+        </p>
+      ) : null}
+    </li>
   );
 }
