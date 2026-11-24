@@ -3,10 +3,10 @@ import "./globals.css";
 import { RegisterServiceWorker } from "./register-service-worker";
 
 export const metadata: Metadata = {
-  title: "books-rag",
+  title: "Recall Library",
   description: "Remember what you read, watch and learn.",
   // The manifest itself comes from app/manifest.ts; these cover iOS's "Add to Home Screen".
-  appleWebApp: { capable: true, title: "books-rag", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Recall Library", statusBarStyle: "default" },
   icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
 };
 

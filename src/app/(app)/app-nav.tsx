@@ -56,7 +56,7 @@ export function AppNav({ counts, signOut }: { counts: NavCounts; signOut: React.
     <>
       <header className="phone-header">
         <Link href="/" className="brand">
-          books-rag
+          Recall Library
         </Link>
         <div className="phone-header-actions">
           {signOut}
@@ -67,7 +67,7 @@ export function AppNav({ counts, signOut }: { counts: NavCounts; signOut: React.
       </header>
       <nav className="rail" aria-label="Main">
         <Link href="/" className="brand">
-          books-rag
+          Recall Library
         </Link>
         <Link href="/add" className={addActive ? "add-button active" : "add-button"}>
           + Add

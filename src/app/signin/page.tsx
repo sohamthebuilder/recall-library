@@ -11,7 +11,7 @@ export default async function SignInPage({
 
   return (
     <main className="signin panel">
-      <h1>books-rag</h1>
+      <h1>Recall Library</h1>
       {error === "AccessDenied" ? (
         <p className="error">That Google account is not allowed to use this app.</p>
       ) : error ? (
