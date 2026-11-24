@@ -23,7 +23,7 @@ export function SuggestedEditsPanel({ topicId, edits }: { topicId: string; edits
                 {edit.kind === "contradicts" ? "Contradicts" : "Adds"}
               </span>
               <span>
-                From <Link href={`/sources/${edit.source.id}`}>{edit.source.title ?? "Untitled Source"}</Link>
+                From <Link href={`/sources/${edit.source.id}`}>{edit.source.name}</Link>
               </span>
             </div>
             <p>{edit.summary}</p>

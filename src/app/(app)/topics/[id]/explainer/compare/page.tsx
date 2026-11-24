@@ -82,7 +82,7 @@ function Passage({ passage }: { passage: CitedPassage }) {
         <p>{passage.text}</p>
       )}
       <footer>
-        <Link href={`/sources/${passage.sourceId}`}>{passage.sourceTitle ?? "Untitled Source"}</Link>
+        <Link href={`/sources/${passage.sourceId}`}>{passage.sourceName}</Link>
       </footer>
     </blockquote>
   );

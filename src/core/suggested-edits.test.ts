@@ -81,7 +81,7 @@ describe("Suggested Edits from a new Source", () => {
       {
         id: undefined,
         topicId: topic.id,
-        source: { id: source.id, title: "Rebalancing" },
+        source: { id: source.id, title: "Rebalancing", name: "Rebalancing" },
         kind: "adds",
         summary: "Adds static membership.",
         keyPointId: null,
@@ -93,7 +93,7 @@ describe("Suggested Edits from a new Source", () => {
       {
         id: undefined,
         topicId: topic.id,
-        source: { id: source.id, title: "Rebalancing" },
+        source: { id: source.id, title: "Rebalancing", name: "Rebalancing" },
         kind: "contradicts",
         summary: "The new Source says reading pauses while the group rebalances.",
         keyPointId: "kp2",
@@ -263,7 +263,7 @@ describe("Suggested Edits from a new Source", () => {
     const source = await linkNewSource(t, topic.id);
 
     expect(await t.core.suggestedEditFailures(topic.id)).toEqual([
-      { source: { id: source.id, title: "Rebalancing" }, reason: "The AI is down." },
+      { source: { id: source.id, title: "Rebalancing", name: "Rebalancing" }, reason: "The AI is down." },
     ]);
 
     t.ai.scriptSuggestedEdits(TOPIC, twoEdits);
@@ -323,8 +323,8 @@ describe("Suggested Edits from a new Source", () => {
     await t.core.runJobs();
 
     expect((await t.core.suggestedEdits(topic.id)).map((e) => e.source)).toEqual([
-      { id: source.id, title: "Rebalancing" },
-      { id: source.id, title: "Rebalancing" },
+      { id: source.id, title: "Rebalancing", name: "Rebalancing" },
+      { id: source.id, title: "Rebalancing", name: "Rebalancing" },
     ]);
     expect(t.ai.suggestEditsRequests).toHaveLength(1);
     expect((await t.core.explainerVersions(topic.id)).map((v) => v.number)).toEqual([1]);

@@ -67,7 +67,7 @@ export default async function TopicPage({ params }: { params: Promise<{ id: stri
             </ul>
           </div>
           <div className="button-row topic-actions">
-            <PracticeButton scope={{ topicId: topic.id }} label="Practice" />
+            <PracticeButton scope={{ topicId: topic.id }} label="Practice" primary />
             <MoreMenu label="More actions for this Topic">
               <form action={deleteTopic.bind(null, topic.id)}>
                 <ConfirmButton

@@ -78,7 +78,7 @@ export default async function TopicsPage({ searchParams }: { searchParams: Searc
           Topics <span className="aside-count">{topics.length}</span>
         </h1>
         {singleTag && search === "" && topics.length > 0 ? (
-          <PracticeButton scope={{ tagId: singleTag.id }} label={`Practice ${singleTag.name}`} />
+          <PracticeButton scope={{ tagId: singleTag.id }} label={`Practice ${singleTag.name}`} primary />
         ) : null}
       </div>
 

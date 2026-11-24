@@ -30,7 +30,7 @@ export function ImportTopicsForm() {
         </p>
       ) : null}
 
-      <button className="primary" type="submit" disabled={pending}>
+      <button type="submit" disabled={pending}>
         {pending ? "Adding…" : "Add Topics"}
       </button>
     </form>

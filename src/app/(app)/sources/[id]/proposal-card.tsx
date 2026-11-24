@@ -10,9 +10,12 @@ const initialState: FormState = { error: null, ok: false };
 export function ProposalCard({
   proposal,
   topics,
+  primary = false,
 }: {
   proposal: TopicProposal;
   topics: { id: string; name: string }[];
+  /** Only the first card's Approve is the screen's primary button. */
+  primary?: boolean;
 }) {
   const [state, action, pending] = useActionState(
     decideTopicProposal.bind(null, proposal.sourceId, proposal.id),
@@ -67,7 +70,7 @@ export function ProposalCard({
       ) : null}
 
       <div className="button-row">
-        <button className="primary" type="submit" name="decision" value="approve" disabled={pending}>
+        <button className={primary ? "primary" : "accept"} type="submit" name="decision" value="approve" disabled={pending}>
           Approve
         </button>
         {topics.length > 0 ? (

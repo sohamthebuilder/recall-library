@@ -132,7 +132,7 @@ body {
 
 .nav-badge {
   background: var(--danger);
-  color: #fff;
+  color: var(--accent-text);
 }
 
 .rail-foot {
@@ -456,7 +456,7 @@ button:disabled {
 }
 
 .source-meta {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   color: var(--muted);
 }
 
@@ -1963,5 +1963,90 @@ a.primary-link {
   }
   .data-table .num {
     text-align: left;
+  }
+}
+
+/* Visual system: readable small text, secondary actions, Note markdown, phone touch targets. */
+.badge {
+  font-size: 0.8rem;
+}
+
+button.accept {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.markdown {
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  margin: 16px 0 6px;
+  font-size: 1rem;
+}
+
+.markdown h3 {
+  font-size: 1.1rem;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown blockquote {
+  margin: 0 0 10px;
+}
+
+.markdown blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 12px;
+  color: var(--muted);
+}
+
+.markdown pre {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  overflow-x: auto;
+}
+
+.markdown code {
+  font-size: 0.9em;
+}
+
+@media (max-width: 760px) {
+  button,
+  .button-link,
+  a.due-start,
+  select,
+  input:not([type="checkbox"]):not([type="radio"]) {
+    min-height: 44px;
+  }
+  .citation {
+    min-width: 44px;
+    min-height: 44px;
+    vertical-align: middle;
+  }
+  .more-menu > summary {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .tag-add-toggle {
+    width: 44px;
+    height: 44px;
+  }
+  .tag-remove {
+    min-width: 32px;
+  }
+  .segmented button {
+    min-height: 44px;
   }
 }

@@ -58,7 +58,6 @@ export function AnimationPlayer({ content }: { content: ExplainerContent }) {
         </ol>
         <button
           type="button"
-          className="primary"
           onClick={() => setIndex(current + 1)}
           disabled={current === total - 1}
           aria-keyshortcuts="ArrowRight"

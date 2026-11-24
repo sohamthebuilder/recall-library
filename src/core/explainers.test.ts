@@ -71,6 +71,7 @@ describe("generating a Topic's Explainer", () => {
       chunkId: chunk!.id,
       sourceId: note.id,
       sourceTitle: "Kafka notes",
+      sourceName: "Kafka notes",
       text: "A consumer group shares a topic's partitions among its consumers.",
       anchor: chunk!.anchor,
     });

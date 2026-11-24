@@ -15,6 +15,7 @@ import {
 import { enqueueJob } from "./jobs";
 import { AiError, type ExplainerPassage } from "./ports/ai";
 import { onExplainerVersionSaved } from "./recall-prompts";
+import { sourceDisplayName } from "./source-display";
 import { sourceRow } from "./sources";
 import { onSourceTextCapturedForSuggestions, queueSuggestedEdits } from "./suggested-edits";
 
@@ -66,6 +67,8 @@ export type CitedPassage =
       chunkId: string;
       sourceId: string;
       sourceTitle: string | null;
+      /** How the Source is named to the learner (see sourceDisplayName). */
+      sourceName: string;
       text: string;
       anchor: ChunkAnchor;
     }
@@ -426,6 +429,7 @@ export async function citedPassages(db: DbOrTx, content: ExplainerContent): Prom
       sourceTitle: sources.title,
       text: sourceChunks.text,
       anchor: sourceChunks.anchor,
+      source: { kind: sources.kind, title: sources.title, reference: sources.reference, text: sources.text },
     })
     .from(sourceChunks)
     .innerJoin(sources, eq(sources.id, sourceChunks.sourceId))
@@ -436,7 +440,15 @@ export async function citedPassages(db: DbOrTx, content: ExplainerContent): Prom
   for (const [chunkId, citation] of citations) {
     const row = found.get(chunkId);
     out[chunkId] = row
-      ? { status: "available", ...row, anchor: row.anchor as ChunkAnchor }
+      ? {
+          status: "available",
+          chunkId: row.chunkId,
+          sourceId: row.sourceId,
+          sourceTitle: row.sourceTitle,
+          sourceName: sourceDisplayName(row.source),
+          text: row.text,
+          anchor: row.anchor as ChunkAnchor,
+        }
       : { status: "source_removed", chunkId, sourceId: citation.sourceId };
   }
   return out;

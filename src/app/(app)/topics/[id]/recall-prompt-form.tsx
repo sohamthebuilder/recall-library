@@ -59,7 +59,7 @@ export function RecallPromptForm({
         One per line.
       </p>
       <div className="button-row">
-        <button type="submit" className="primary" disabled={pending}>
+        <button type="submit" disabled={pending}>
           {pending ? "Saving…" : submitLabel}
         </button>
       </div>

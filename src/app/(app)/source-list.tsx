@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { LibrarySource } from "@/core";
+import { plainText } from "./markdown";
 import { SourceMeta, sourceDisplayTitle } from "./source-meta";
 import { StatusBadge } from "./source-status";
 
@@ -15,7 +16,7 @@ export function SourceList({ sources }: { sources: LibrarySource[] }) {
             </h3>
             <StatusBadge status={source.status} awaitingApproval={source.topicsAwaitingApproval} />
           </div>
-          {source.text ? <p className="clamp">{source.text}</p> : null}
+          {source.text ? <p className="clamp">{plainText(source.text)}</p> : null}
           {source.status === "failed" && source.failureReason ? <p className="error">{source.failureReason}</p> : null}
           <SourceMeta source={source} />
         </li>

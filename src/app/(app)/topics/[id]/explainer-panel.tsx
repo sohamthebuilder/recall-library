@@ -26,7 +26,7 @@ export function ExplainerPanel({ topicId, explainer }: { topicId: string; explai
           <>
             <p className="error">{explainer.failureReason}</p>
             <form action={retryExplainer.bind(null, topicId)}>
-              <button type="submit" className="primary">
+              <button type="submit">
                 Try again
               </button>
             </form>

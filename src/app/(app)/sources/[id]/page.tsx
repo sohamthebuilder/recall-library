@@ -6,6 +6,8 @@ import { deleteSource, retrySource } from "../../actions";
 import { SourceMeta, sourceDisplayTitle } from "../../source-meta";
 import { RefreshWhileProcessing, StatusBadge } from "../../source-status";
 import { ChapterSelection } from "./chapter-selection";
+import { Markdown } from "../../markdown";
+import { MoreMenu } from "../../more-menu";
 import { DeleteSourceButton } from "./delete-source-button";
 import { ProposalCard } from "./proposal-card";
 
@@ -61,9 +63,11 @@ export default async function SourcePage({
         </div>
         <div className="row-between" style={{ marginBottom: 12 }}>
           <SourceMeta source={source} />
-          <form action={deleteSource.bind(null, source.id)}>
-            <DeleteSourceButton name={sourceDisplayTitle(source)} citingExplainers={citingExplainers} />
-          </form>
+          <MoreMenu label="More actions for this Source">
+            <form action={deleteSource.bind(null, source.id)}>
+              <DeleteSourceButton name={sourceDisplayTitle(source)} citingExplainers={citingExplainers} />
+            </form>
+          </MoreMenu>
         </div>
         {source.status === "failed" ? (
           <form action={retrySource.bind(null, source.id)}>
@@ -86,6 +90,8 @@ export default async function SourcePage({
               </li>
             ))}
           </ol>
+        ) : source.text && (source.kind === "note" || source.kind === "markdown") ? (
+          <Markdown text={source.text} />
         ) : source.text ? (
           <p className="source-text">{source.text}</p>
         ) : null}
@@ -123,9 +129,9 @@ export default async function SourcePage({
         ) : null}
         {pending.length > 0 ? (
           <ul className="source-list">
-            {pending.map((proposal) => (
+            {pending.map((proposal, i) => (
               <li key={proposal.id}>
-                <ProposalCard proposal={proposal} topics={topics.map(({ id, name }) => ({ id, name }))} />
+                <ProposalCard proposal={proposal} topics={topics.map(({ id, name }) => ({ id, name }))} primary={i === 0} />
               </li>
             ))}
           </ul>

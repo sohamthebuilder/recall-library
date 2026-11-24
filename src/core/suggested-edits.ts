@@ -16,6 +16,7 @@ import { type ExplainerCitation, type ExplainerContent, parseStoredContent } fro
 import { type CitedPassage, citedPassages, saveExplainerVersion } from "./explainers";
 import { enqueueJob } from "./jobs";
 import { AiError, type SuggestedEditDraft } from "./ports/ai";
+import { sourceDisplayName } from "./source-display";
 
 export const UNEXPECTED_SUGGESTION_FAILURE = "Something went wrong while checking this Source for Suggested Edits.";
 
@@ -34,7 +35,7 @@ export interface SuggestedEdit {
   id: string;
   topicId: string;
   /** The Source the edit comes from. */
-  source: { id: string; title: string | null };
+  source: { id: string; title: string | null; name: string };
   kind: SuggestedEditKind;
   /** What the Source adds or contradicts, in a sentence. */
   summary: string;
@@ -188,7 +189,7 @@ async function topicIdOf(db: DbOrTx, topicId: string): Promise<string> {
 export async function listSuggestedEdits(deps: CoreDeps, topicIdInput: string): Promise<SuggestedEdit[]> {
   const topicId = await topicIdOf(deps.db, topicIdInput);
   const rows = await deps.db
-    .select({ edit: suggestedEdits, sourceTitle: sources.title })
+    .select({ edit: suggestedEdits, source: { kind: sources.kind, title: sources.title, reference: sources.reference, text: sources.text } })
     .from(suggestedEdits)
     .innerJoin(sources, eq(sources.id, suggestedEdits.sourceId))
     .where(and(eq(suggestedEdits.topicId, topicId), eq(suggestedEdits.status, "pending")))
@@ -197,12 +198,12 @@ export async function listSuggestedEdits(deps: CoreDeps, topicIdInput: string): 
 
   const current = await currentContentOf(deps.db, topicId);
   const out: SuggestedEdit[] = [];
-  for (const { edit, sourceTitle } of rows) {
+  for (const { edit, source } of rows) {
     const passages = await citedPassages(deps.db, citingContent(edit.citations));
     out.push({
       id: edit.id,
       topicId: edit.topicId,
-      source: { id: edit.sourceId, title: sourceTitle },
+      source: { id: edit.sourceId, title: source.title, name: sourceDisplayName(source) },
       kind: edit.kind,
       summary: edit.summary,
       keyPointId: edit.keyPointId,
@@ -217,7 +218,7 @@ export async function listSuggestedEdits(deps: CoreDeps, topicIdInput: string): 
 
 export interface SuggestedEditFailure {
   /** The linked Source that could not be checked for Suggested Edits. */
-  source: { id: string; title: string | null };
+  source: { id: string; title: string | null; name: string };
   reason: string;
 }
 
@@ -225,12 +226,19 @@ export interface SuggestedEditFailure {
 export async function listSuggestedEditFailures(deps: CoreDeps, topicIdInput: string): Promise<SuggestedEditFailure[]> {
   const topicId = await topicIdOf(deps.db, topicIdInput);
   const rows = await deps.db
-    .select({ sourceId: sources.id, title: sources.title, reason: suggestedEditFailures.reason })
+    .select({
+      sourceId: sources.id,
+      source: { kind: sources.kind, title: sources.title, reference: sources.reference, text: sources.text },
+      reason: suggestedEditFailures.reason,
+    })
     .from(suggestedEditFailures)
     .innerJoin(sources, eq(sources.id, suggestedEditFailures.sourceId))
     .where(eq(suggestedEditFailures.topicId, topicId))
     .orderBy(asc(suggestedEditFailures.failedAt));
-  return rows.map((r) => ({ source: { id: r.sourceId, title: r.title }, reason: r.reason }));
+  return rows.map((r) => ({
+    source: { id: r.sourceId, title: r.source.title, name: sourceDisplayName(r.source) },
+    reason: r.reason,
+  }));
 }
 
 /** Check a Source again for Suggested Edits after the check failed (queues the job again). */
