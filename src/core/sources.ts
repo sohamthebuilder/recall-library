@@ -1,5 +1,5 @@
 import { count, desc, eq } from "drizzle-orm";
-import { sources, topicProposals } from "@/db/schema";
+import { sources, topicProposals, topicSources } from "@/db/schema";
 import type { CoreDeps } from "./core";
 import { NotFoundError, ValidationError } from "./errors";
 import { enqueueJob } from "./jobs";
@@ -34,6 +34,8 @@ export interface Source {
 export interface LibrarySource extends Source {
   /** How many of its proposed Topics still wait for the learner to approve, merge or reject. */
   topicsAwaitingApproval: number;
+  /** How many Topics draw on it. */
+  topicCount: number;
 }
 
 export interface Library {
@@ -118,8 +120,18 @@ export async function addSource(deps: CoreDeps, input: AddSourceInput): Promise<
 
 export async function library(deps: CoreDeps): Promise<Library> {
   const rows = await deps.db.select().from(sources).orderBy(desc(sources.addedAt));
-  const awaiting = await topicsAwaitingApprovalBySource(deps);
-  return { sources: rows.map((row) => ({ ...toSource(row), topicsAwaitingApproval: awaiting.get(row.id) ?? 0 })) };
+  const [awaiting, linked] = await Promise.all([
+    topicsAwaitingApprovalBySource(deps),
+    deps.db.select({ sourceId: topicSources.sourceId, n: count() }).from(topicSources).groupBy(topicSources.sourceId),
+  ]);
+  const topicCounts = new Map(linked.map((r) => [r.sourceId, r.n]));
+  return {
+    sources: rows.map((row) => ({
+      ...toSource(row),
+      topicsAwaitingApproval: awaiting.get(row.id) ?? 0,
+      topicCount: topicCounts.get(row.id) ?? 0,
+    })),
+  };
 }
 
 /** Pending Topic proposals per Source (only Sources that have some). */

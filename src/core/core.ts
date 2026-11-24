@@ -20,6 +20,7 @@ import {
 import { jobGiveUpHandlers, jobHandlers } from "./job-handlers";
 import { runJobs, type RunJobsOptions } from "./jobs";
 import { needsYou } from "./needs-you";
+import { topicMemory } from "./topic-memory";
 import type { AiAdapter } from "./ports/ai";
 import type { Clock } from "./ports/clock";
 import type { ContentFetcher } from "./ports/content-fetcher";
@@ -115,6 +116,8 @@ export function createCore(deps: CoreDeps) {
     topic: (topicId: string) => getTopic(deps, topicId),
     deleteTopic: (topicId: string) => deleteTopic(deps, topicId),
     importTopics: (list: string) => importTopics(deps, list),
+    /** Per Topic with active prompts: how many are due today, next due, last reviewed, FSRS strength. */
+    topicMemory: (options?: DueOptions) => topicMemory(deps, options),
     linkSourceToTopic: (input: Arg<typeof linkSourceByHand>) => linkSourceByHand(deps, input),
 
     // Tags

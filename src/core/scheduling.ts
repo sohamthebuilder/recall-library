@@ -51,19 +51,7 @@ export function memoryStateOf(row: typeof recallPrompts.$inferSelect): MemorySta
 
 /** The memory state after reviewing with this rating at `now`. */
 export function schedule(before: MemoryState, rating: ReviewRating, now: Date): MemoryState {
-  const empty = createEmptyCard(before.due);
-  const card: Card = {
-    ...empty,
-    due: before.due,
-    stability: before.stability ?? empty.stability,
-    difficulty: before.difficulty ?? empty.difficulty,
-    state: STATE_OF[before.fsrsState],
-    reps: before.reps,
-    lapses: before.lapses,
-    learning_steps: before.learningSteps,
-    last_review: before.lastReviewedAt ?? undefined,
-  };
-  const next = scheduler.next(card, now, GRADE_OF[rating]).card;
+  const next = scheduler.next(toCard(before), now, GRADE_OF[rating]).card;
   return {
     due: next.due,
     stability: next.stability,
@@ -73,6 +61,27 @@ export function schedule(before: MemoryState, rating: ReviewRating, now: Date): 
     lapses: next.lapses,
     learningSteps: next.learning_steps,
     lastReviewedAt: now,
+  };
+}
+
+/** FSRS's estimate (0–1) that the learner can recall it at `now`; null before its first Review. */
+export function retrievability(state: MemoryState, now: Date): number | null {
+  if (!state.lastReviewedAt) return null;
+  return scheduler.get_retrievability(toCard(state), now, false);
+}
+
+function toCard(before: MemoryState): Card {
+  const empty = createEmptyCard(before.due);
+  return {
+    ...empty,
+    due: before.due,
+    stability: before.stability ?? empty.stability,
+    difficulty: before.difficulty ?? empty.difficulty,
+    state: STATE_OF[before.fsrsState],
+    reps: before.reps,
+    lapses: before.lapses,
+    learning_steps: before.learningSteps,
+    last_review: before.lastReviewedAt ?? undefined,
   };
 }
 

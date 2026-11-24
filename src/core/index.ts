@@ -2,6 +2,7 @@
 export { createCore, type Core, type CoreDeps } from "./core";
 export { canSignIn } from "./access";
 export type { NeedsYou } from "./needs-you";
+export type { TopicMemory } from "./topic-memory";
 export { NotFoundError, ValidationError } from "./errors";
 export type { AddSourceInput, Library, LibrarySource, Source, SourceKind, SourceStatus } from "./sources";
 export type { ChunkAnchor } from "./chunking";
