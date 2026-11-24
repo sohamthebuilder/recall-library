@@ -96,7 +96,7 @@ flowchart LR
 6. **Build in parallel.** Agents worked on separate tickets at the same time in isolated git
    worktrees, each merging into a shared v1 branch
    ([PR #21](https://github.com/sohamthebuilder/recall-library/pull/21)).
-7. **Test behaviour, not internals.** Around 450 automated tests exercise the application core
+7. **Test behaviour, not internals.** Around 240 automated tests exercise the application core
    against a real (in-process) database with scripted fake AI, e.g. "a new Source on an edited
    Topic produces Suggested Edits, never a new Explainer version".
 8. **Review, then use it.** A code-review pass fixed issues across tickets. Then I used the app

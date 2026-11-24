@@ -43,7 +43,7 @@ async function download(doFetch: typeof fetch, url: string, timeoutMs: number): 
       redirect: "follow",
       headers: {
         accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
-        "user-agent": "Mozilla/5.0 (compatible; books-rag article reader)",
+        "user-agent": "Mozilla/5.0 (compatible; recall-library article reader)",
       },
     });
   } catch {

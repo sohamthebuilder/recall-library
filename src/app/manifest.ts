@@ -8,8 +8,8 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest & { share_target: ShareTarget } {
   return {
     id: "/",
-    name: "books-rag",
-    short_name: "books-rag",
+    name: "Recall Library",
+    short_name: "Recall",
     description: "Remember what you read, watch and learn.",
     start_url: "/",
     scope: "/",
