@@ -1,4 +1,4 @@
-import { count, desc, eq } from "drizzle-orm";
+import { count, desc, eq, sql } from "drizzle-orm";
 import { sources, topicProposals, topicSources } from "@/db/schema";
 import type { CoreDeps } from "./core";
 import { NotFoundError, ValidationError } from "./errors";
@@ -14,6 +14,17 @@ import type { SourceStatus } from "./source-status";
 export type { SourceStatus };
 
 export type SourceRow = typeof sources.$inferSelect;
+
+/**
+ * The columns sourceDisplayName needs, for selecting alongside other data. Only the start of
+ * the text is read (a Note is named from its first heading or line), never a whole book.
+ */
+export const sourceNameColumns = {
+  kind: sources.kind,
+  title: sources.title,
+  reference: sources.reference,
+  text: sql<string | null>`left(${sources.text}, 2000)`,
+};
 
 export interface Source {
   id: string;

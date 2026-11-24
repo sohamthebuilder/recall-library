@@ -69,11 +69,12 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 14px;
   border-radius: 8px;
-  background: var(--accent);
-  color: var(--accent-text);
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
   font-weight: 600;
   text-decoration: none;
 }
@@ -2044,7 +2045,8 @@ button.accept {
     height: 44px;
   }
   .tag-remove {
-    min-width: 32px;
+    min-width: 44px;
+    min-height: 44px;
   }
   .segmented button {
     min-height: 44px;

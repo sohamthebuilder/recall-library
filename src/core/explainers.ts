@@ -16,7 +16,7 @@ import { enqueueJob } from "./jobs";
 import { AiError, type ExplainerPassage } from "./ports/ai";
 import { onExplainerVersionSaved } from "./recall-prompts";
 import { sourceDisplayName } from "./source-display";
-import { sourceRow } from "./sources";
+import { sourceNameColumns, sourceRow } from "./sources";
 import { onSourceTextCapturedForSuggestions, queueSuggestedEdits } from "./suggested-edits";
 
 /**
@@ -429,7 +429,7 @@ export async function citedPassages(db: DbOrTx, content: ExplainerContent): Prom
       sourceTitle: sources.title,
       text: sourceChunks.text,
       anchor: sourceChunks.anchor,
-      source: { kind: sources.kind, title: sources.title, reference: sources.reference, text: sources.text },
+      source: sourceNameColumns,
     })
     .from(sourceChunks)
     .innerJoin(sources, eq(sources.id, sourceChunks.sourceId))

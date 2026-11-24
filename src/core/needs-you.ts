@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { sources, topics } from "@/db/schema";
 import type { CoreDeps } from "./core";
 import { sourceDisplayName } from "./source-display";
-import { topicsAwaitingApprovalBySource } from "./sources";
+import { sourceNameColumns, topicsAwaitingApprovalBySource } from "./sources";
 import { pendingSuggestedEditCounts } from "./suggested-edits";
 
 /** Everything waiting for the learner to decide or fix, each linking to where it is resolved. */
@@ -17,11 +17,15 @@ export interface NeedsYou {
   total: number;
 }
 
+/** What waits for the learner now, for Today and the nav count. Reads no Source text beyond a Note's start. */
 export async function needsYou(deps: CoreDeps): Promise<NeedsYou> {
   const [awaiting, editCounts, sourceRows, topicRows] = await Promise.all([
     topicsAwaitingApprovalBySource(deps),
     pendingSuggestedEditCounts(deps),
-    deps.db.select().from(sources).orderBy(desc(sources.addedAt)),
+    deps.db
+      .select({ id: sources.id, ...sourceNameColumns, status: sources.status, failureReason: sources.failureReason })
+      .from(sources)
+      .orderBy(desc(sources.addedAt)),
     deps.db.select({ id: topics.id, name: topics.name }).from(topics),
   ]);
 

@@ -17,6 +17,7 @@ import { type CitedPassage, citedPassages, saveExplainerVersion } from "./explai
 import { enqueueJob } from "./jobs";
 import { AiError, type SuggestedEditDraft } from "./ports/ai";
 import { sourceDisplayName } from "./source-display";
+import { sourceNameColumns } from "./sources";
 
 export const UNEXPECTED_SUGGESTION_FAILURE = "Something went wrong while checking this Source for Suggested Edits.";
 
@@ -189,7 +190,7 @@ async function topicIdOf(db: DbOrTx, topicId: string): Promise<string> {
 export async function listSuggestedEdits(deps: CoreDeps, topicIdInput: string): Promise<SuggestedEdit[]> {
   const topicId = await topicIdOf(deps.db, topicIdInput);
   const rows = await deps.db
-    .select({ edit: suggestedEdits, source: { kind: sources.kind, title: sources.title, reference: sources.reference, text: sources.text } })
+    .select({ edit: suggestedEdits, source: sourceNameColumns })
     .from(suggestedEdits)
     .innerJoin(sources, eq(sources.id, suggestedEdits.sourceId))
     .where(and(eq(suggestedEdits.topicId, topicId), eq(suggestedEdits.status, "pending")))
@@ -228,7 +229,7 @@ export async function listSuggestedEditFailures(deps: CoreDeps, topicIdInput: st
   const rows = await deps.db
     .select({
       sourceId: sources.id,
-      source: { kind: sources.kind, title: sources.title, reference: sources.reference, text: sources.text },
+      source: sourceNameColumns,
       reason: suggestedEditFailures.reason,
     })
     .from(suggestedEditFailures)
