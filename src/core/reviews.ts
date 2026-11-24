@@ -97,8 +97,10 @@ export interface ReviewSession {
   startedAt: Date;
   /** Prompts reviewed in this session. */
   done: number;
-  /** Prompts still to review (paused or deleted ones drop out). */
+  /** Prompts still to review (paused, deleted and skipped ones drop out). */
   remaining: number;
+  /** Prompts skipped in this session: not graded, still due. */
+  skipped: number;
   /** The prompt to answer now, as currently worded. */
   current: DuePrompt;
   /** The session's most recent Review, so a resumed session can show (and overrule) it. */
@@ -134,7 +136,8 @@ export async function reviewSession(deps: CoreDeps, kind: ReviewKind = "schedule
     .where(eq(reviews.sessionId, session.id))
     .orderBy(asc(reviews.reviewedAt), asc(reviews.id));
   const reviewed = new Set(done.map((r) => r.review.promptId));
-  const pending = session.promptIds.filter((id) => !reviewed.has(id));
+  const skipped = new Set(session.skippedPromptIds);
+  const pending = session.promptIds.filter((id) => !reviewed.has(id) && !skipped.has(id));
   const live =
     pending.length === 0
       ? []
@@ -157,8 +160,83 @@ export async function reviewSession(deps: CoreDeps, kind: ReviewKind = "schedule
     startedAt: session.startedAt,
     done: reviewed.size,
     remaining: remaining.length,
+    skipped: skipped.size,
     current: remaining[0]!,
     lastReview: last ? toReview(last) : null,
+  };
+}
+
+/**
+ * Skip a prompt in the open session without grading it: the session moves on and the prompt's
+ * schedule is untouched, so it stays due. Returns the session as it is now (null once finished).
+ */
+export async function skipPrompt(
+  deps: CoreDeps,
+  input: { sessionId: string; promptId: string },
+): Promise<ReviewSession | null> {
+  const [session] = await deps.db
+    .select()
+    .from(reviewSessions)
+    .where(and(sql`${reviewSessions.id}::text = ${input.sessionId}`, isNull(reviewSessions.finishedAt)));
+  if (!session) throw new NotFoundError("That Review session has finished.");
+  if (!session.promptIds.includes(input.promptId)) throw new ValidationError("That Recall Prompt is not in this Review session.");
+  if (!session.skippedPromptIds.includes(input.promptId)) {
+    await deps.db
+      .update(reviewSessions)
+      .set({ skippedPromptIds: [...session.skippedPromptIds, input.promptId] })
+      .where(eq(reviewSessions.id, session.id));
+  }
+  return reviewSession(deps, session.kind);
+}
+
+export interface ReviewSummary {
+  kind: ReviewKind;
+  /** Prompts graded in the session. */
+  reviewed: number;
+  /** Prompts skipped: not graded, still due. */
+  skipped: number;
+  /** How many final ratings of each grade. */
+  ratings: Record<ReviewRating, number>;
+  /** Prompts graded Again, which come back within the day. */
+  comingBackSoon: number;
+  /** The Topic answered worst (lowest average grade), if any answer was Again or Hard. */
+  weakestTopic: { id: string; name: string } | null;
+}
+
+const RATING_SCORE: Record<ReviewRating, number> = { again: 1, hard: 2, good: 3, easy: 4 };
+
+/** What a Review session (open or finished) came to: shown when the learner finishes it. */
+export async function reviewSummary(deps: CoreDeps, sessionId: string): Promise<ReviewSummary> {
+  const [session] = await deps.db.select().from(reviewSessions).where(sql`${reviewSessions.id}::text = ${sessionId}`);
+  if (!session) throw new NotFoundError("That Review session no longer exists.");
+  const rows = await deps.db
+    .select({ rating: reviews.rating, topicId: topics.id, topicName: topics.name })
+    .from(reviews)
+    .innerJoin(recallPrompts, eq(recallPrompts.id, reviews.promptId))
+    .innerJoin(topics, eq(topics.id, recallPrompts.topicId))
+    .where(eq(reviews.sessionId, session.id));
+
+  const ratings: Record<ReviewRating, number> = { again: 0, hard: 0, good: 0, easy: 0 };
+  const byTopic = new Map<string, { name: string; total: number; count: number; struggled: boolean }>();
+  for (const r of rows) {
+    ratings[r.rating]++;
+    const t = byTopic.get(r.topicId) ?? { name: r.topicName, total: 0, count: 0, struggled: false };
+    t.total += RATING_SCORE[r.rating];
+    t.count++;
+    t.struggled ||= r.rating === "again" || r.rating === "hard";
+    byTopic.set(r.topicId, t);
+  }
+  const weakest = [...byTopic.entries()]
+    .filter(([, t]) => t.struggled)
+    .sort(([, a], [, b]) => a.total / a.count - b.total / b.count || a.name.localeCompare(b.name))[0];
+
+  return {
+    kind: session.kind,
+    reviewed: rows.length,
+    skipped: session.skippedPromptIds.length,
+    ratings,
+    comingBackSoon: ratings.again,
+    weakestTopic: weakest ? { id: weakest[0], name: weakest[1].name } : null,
   };
 }
 
@@ -305,6 +383,39 @@ export async function overruleGrade(deps: CoreDeps, input: OverruleGradeInput): 
       .where(eq(reviews.id, review.id));
   });
   return getReview(deps.db, input.reviewId);
+}
+
+/**
+ * Undo a grade given in the open Review session: the Review is removed, the prompt's schedule
+ * goes back to what it was before it, and the prompt is current again. Only the prompt's latest
+ * Review, and only while its session is open. Returns the session as it is now.
+ */
+export async function undoReview(deps: CoreDeps, reviewId: string): Promise<ReviewSession | null> {
+  const kind = await deps.db.transaction(async (tx) => {
+    const [review] = await tx.select().from(reviews).where(sql`${reviews.id}::text = ${reviewId}`).for("update");
+    if (!review) throw new NotFoundError("That Review no longer exists.");
+    const [session] = review.sessionId
+      ? await tx
+          .select()
+          .from(reviewSessions)
+          .where(and(eq(reviewSessions.id, review.sessionId), isNull(reviewSessions.finishedAt)))
+      : [];
+    if (!session) throw new NotFoundError("That Review session has finished.");
+    const [latest] = await tx
+      .select({ id: reviews.id })
+      .from(reviews)
+      .where(eq(reviews.promptId, review.promptId))
+      .orderBy(desc(reviews.reviewedAt), desc(reviews.id))
+      .limit(1);
+    if (latest!.id !== review.id) throw new ValidationError("Only the latest grade of a prompt can be undone.");
+    const [prompt] = await tx.select().from(recallPrompts).where(eq(recallPrompts.id, review.promptId)).for("update");
+    if (prompt && !prompt.deletedAt) {
+      await tx.update(recallPrompts).set(parseMemoryState(review.cardBefore)).where(eq(recallPrompts.id, review.promptId));
+    }
+    await tx.delete(reviews).where(eq(reviews.id, review.id));
+    return session.kind;
+  });
+  return reviewSession(deps, kind);
 }
 
 /**

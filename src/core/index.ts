@@ -53,6 +53,7 @@ export type {
   ReviewKind,
   ReviewRating,
   ReviewSession,
+  ReviewSummary,
   SubmitReviewInput,
 } from "./reviews";
 export { MINUTES_PER_REVIEW } from "./reviews";

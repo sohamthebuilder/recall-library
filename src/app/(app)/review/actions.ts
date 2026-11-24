@@ -92,3 +92,29 @@ async function ignoreGone(op: () => Promise<unknown>): Promise<void> {
     if (!(e instanceof ValidationError || e instanceof NotFoundError)) throw e;
   }
 }
+
+/** Move on without grading the current prompt (it stays due). Says whether the session is over. */
+export async function skipInReview(sessionId: string, promptId: string): Promise<{ error: string | null; finished: boolean }> {
+  await requireLearner();
+  try {
+    const session = await getCore().skipPrompt({ sessionId, promptId });
+    revalidatePath("/", "layout");
+    return { error: null, finished: session === null };
+  } catch (e) {
+    if (e instanceof ValidationError || e instanceof NotFoundError) return { error: e.message, finished: false };
+    throw e;
+  }
+}
+
+/** Take back the last grade of the open session: that prompt is asked again. */
+export async function undoLastGrade(reviewId: string): Promise<{ error: string | null }> {
+  await requireLearner();
+  try {
+    await getCore().undoReview(reviewId);
+  } catch (e) {
+    if (e instanceof ValidationError || e instanceof NotFoundError) return { error: e.message };
+    throw e;
+  }
+  revalidatePath("/", "layout");
+  return { error: null };
+}

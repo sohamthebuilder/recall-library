@@ -1,0 +1,1 @@
+ALTER TABLE "review_sessions" ADD COLUMN "skipped_prompt_ids" jsonb DEFAULT '[]'::jsonb NOT NULL;

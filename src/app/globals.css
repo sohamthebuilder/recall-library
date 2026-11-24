@@ -1460,3 +1460,83 @@ a.due-start {
 .instruction-undo {
   margin-top: 6px;
 }
+
+/* Review session */
+.progress-bar {
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.progress-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.undo-notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 10px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 0.9rem;
+}
+
+.undo-notice .link-button {
+  color: var(--accent);
+  padding: 4px 6px;
+  text-decoration: underline;
+}
+
+.skip-button {
+  margin-left: auto;
+}
+
+.overrule {
+  align-items: center;
+}
+
+.review-summary {
+  max-width: 640px;
+}
+
+.summary-lead {
+  font-size: 1.1rem;
+}
+
+.summary-grades {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 0;
+  margin: 0 0 16px;
+}
+
+.summary-grades li {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.summary-grades strong {
+  display: block;
+  font-size: 1.4rem;
+  color: var(--text);
+}
+
+a.primary-link {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
