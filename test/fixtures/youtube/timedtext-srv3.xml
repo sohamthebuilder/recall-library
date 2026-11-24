@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?><timedtext format="3">
+<head>
+<ws id="0"/>
+<wp id="0"/>
+</head>
+<body>
+<p t="160" d="4080">Hi everyone, today we&#39;re looking at
+Kafka consumer groups.</p>
+<p t="4240" d="3920">A consumer group shares the partitions
+of a topic between its members.</p>
+<p t="8160" d="2000"></p>
+<p t="10160" d="5100">When a member joins or leaves,
+the group <i>rebalances</i> &amp; reassigns partitions.</p>
+<p t="65020" d="3300">Offsets record how far each &quot;consumer&quot; has read.</p>
+</body>
+</timedtext>

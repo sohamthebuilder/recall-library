@@ -1,0 +1,146 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /Outlines 16 0 R /PageMode /UseOutlines >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R 9 0 R 11 0 R 13 0 R 15 0 R] /Count 6 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Length 88 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+72 720 Td
+(Streams in Practice) Tj T*
+(A short sample book.) Tj T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 108 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+72 720 Td
+(Chapter 1: Logs) Tj T*
+(A log is an append-only sequence of records.) Tj T*
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Length 115 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+72 720 Td
+(Each record gets an offset.) Tj T*
+(Consumers read records in offset order.) Tj T*
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 8 0 R >>
+endobj
+10 0 obj
+<< /Length 103 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+72 720 Td
+(Chapter 2: Partitions) Tj T*
+(A topic is split into partitions.) Tj T*
+ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 10 0 R >>
+endobj
+12 0 obj
+<< /Length 80 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+72 720 Td
+(Partitions let consumers share the work.) Tj T*
+ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 12 0 R >>
+endobj
+14 0 obj
+<< /Length 115 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+72 720 Td
+(Chapter 3: Consumer groups) Tj T*
+(Members of a group share the partitions.) Tj T*
+ET
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 14 0 R >>
+endobj
+16 0 obj
+<< /Type /Outlines /First 17 0 R /Last 19 0 R /Count 3 >>
+endobj
+17 0 obj
+<< /Title (Chapter 1: Logs) /Parent 16 0 R /Dest [7 0 R /XYZ 0 792 0] /Next 18 0 R /First 20 0 R /Last 20 0 R /Count 1 >>
+endobj
+18 0 obj
+<< /Title (Chapter 2: Partitions) /Parent 16 0 R /Dest [11 0 R /XYZ 0 792 0] /Prev 17 0 R /Next 19 0 R >>
+endobj
+19 0 obj
+<< /Title (Chapter 3: Consumer groups) /Parent 16 0 R /Dest [15 0 R /XYZ 0 792 0] /Prev 18 0 R >>
+endobj
+20 0 obj
+<< /Title (Offsets) /Parent 17 0 R /Dest [9 0 R /XYZ 0 792 0] >>
+endobj
+21 0 obj
+<< /Title (Streams in Practice) >>
+endobj
+xref
+0 22
+0000000000 65535 f 
+0000000009 00000 n 
+0000000098 00000 n 
+0000000188 00000 n 
+0000000258 00000 n 
+0000000396 00000 n 
+0000000522 00000 n 
+0000000681 00000 n 
+0000000807 00000 n 
+0000000973 00000 n 
+0000001099 00000 n 
+0000001254 00000 n 
+0000001382 00000 n 
+0000001513 00000 n 
+0000001641 00000 n 
+0000001808 00000 n 
+0000001936 00000 n 
+0000002010 00000 n 
+0000002148 00000 n 
+0000002270 00000 n 
+0000002384 00000 n 
+0000002465 00000 n 
+trailer
+<< /Size 22 /Root 1 0 R /Info 21 0 R >>
+startxref
+2516
+%%EOF

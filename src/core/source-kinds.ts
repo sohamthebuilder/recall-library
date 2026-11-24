@@ -1,0 +1,148 @@
+import type { DbOrTx } from "@/db/types";
+import type { CoreDeps } from "./core";
+import { pdf } from "./pdf-sources";
+import { ValidationError } from "./errors";
+import { readUploadedFile, type UploadRule } from "./uploads";
+import { ContentFetchError, type TranscriptCue, type YouTubeTranscript, type FetchedArticle } from "./ports/content-fetcher";
+import type { SourceKind, SourceRow } from "./sources";
+import { parseYouTubeVideoId } from "./youtube";
+
+/**
+ * A run of captured text with where it came from. Chunks cut from a segment inherit its
+ * page or timestamp, so citations can point back into the original.
+ */
+export interface Segment {
+  text: string;
+  /** 1-based page number (PDF). */
+  page?: number;
+  /** Seconds from the start (YouTube). */
+  seconds?: number;
+}
+
+export interface Extraction {
+  /** A title found while extracting (e.g. the article's title). Only used if the Source has none. */
+  title?: string | null;
+  /** The captured text, in order. The Source's stored text is these joined by blank lines. */
+  segments: Segment[];
+}
+
+/**
+ * How one Source kind is captured. The processing pipeline (source-processing.ts) calls
+ * `fetch` while the Source is `fetching`, `extract` while it is `extracting`, then chunks,
+ * embeds and proposes Topics the same way for every kind.
+ *
+ * To add a Source kind: write a handler here, register it in `sourceKindHandlers`, and
+ * extend AddSourceInput in sources.ts. A handler may live in its own module (pdf-sources.ts). Throw ContentFetchError (or AiError) with a message
+ * the learner can act on; it becomes the Source's failure reason.
+ */
+export interface SourceKindHandler<Raw = unknown, E extends Extraction = Extraction> {
+  /** Get the raw material: download the page, read the stored file, fetch the transcript. */
+  fetch(deps: CoreDeps, source: SourceRow): Promise<Raw>;
+  /** Turn the raw material into anchored text. */
+  extract(deps: CoreDeps, source: SourceRow, raw: Raw): Promise<E>;
+  /**
+   * Keep anything else the kind found while extracting (a PDF's chapters). Runs inside the
+   * transaction that stores the text and chunks.
+   */
+  captured?(tx: DbOrTx, now: Date, source: SourceRow, extraction: E): Promise<void>;
+  /**
+   * Propose Topics in place of the default (from all the captured text). A PDF proposes only
+   * from the chapters the learner selected, so this does nothing until they select some.
+   */
+  proposeTopics?(deps: CoreDeps, source: SourceRow): Promise<void>;
+}
+
+/** Helper that keeps a handler's Raw and Extraction types consistent between its methods. */
+export function defineSourceKind<Raw, E extends Extraction = Extraction>(
+  handler: SourceKindHandler<Raw, E>,
+): SourceKindHandler {
+  return handler as unknown as SourceKindHandler;
+}
+
+/** A Note's text is typed in, so there is nothing to fetch and one segment to extract. */
+const note = defineSourceKind<string>({
+  fetch: async (_deps, source) => source.text ?? "",
+  extract: async (_deps, _source, text) => ({ segments: [{ text }] }),
+});
+
+/**
+ * A blog or article link: the content fetcher downloads the page and extracts its readable
+ * text, which is kept so citations survive the page changing or disappearing.
+ */
+const url = defineSourceKind<FetchedArticle>({
+  fetch: async (deps, source) => deps.contentFetcher.fetchArticle(source.reference ?? ""),
+  extract: async (_deps, _source, article) => ({ title: article.title, segments: [{ text: article.text }] }),
+});
+
+/** What a .md upload accepts. Markdown is kept as written: the Source's text is the file's text. */
+export const markdownUpload: UploadRule = {
+  kind: "markdown",
+  extensions: [".md", ".markdown"],
+  contentType: "text/markdown",
+  maxBytes: 4 * 1024 * 1024,
+  label: "a .md file",
+  validate(bytes) {
+    try {
+      decodeUtf8(bytes);
+    } catch {
+      throw new ValidationError("That file isn't readable text. Save it as UTF-8 and upload it again.");
+    }
+  },
+};
+
+/** An uploaded .md file: read it back from the file store; its text is one segment. */
+const markdown = defineSourceKind<string>({
+  fetch: async (deps, source) => decodeUtf8((await readUploadedFile(deps, source)).bytes),
+  extract: async (_deps, _source, text) => ({ segments: [{ text: text.replace(/\r\n?/g, "\n").trim() }] }),
+});
+
+/** Strict UTF-8 (throws on invalid bytes); a leading BOM is dropped. */
+function decodeUtf8(bytes: Uint8Array): string {
+  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+}
+
+export const NO_TRANSCRIPT_REASON =
+  "This video has no transcript available, so it can't be read. Add a Note with what you took from it instead.";
+
+/** Transcript cues are grouped into segments of about this many characters (one timestamp each). */
+const MAX_TRANSCRIPT_SEGMENT_CHARS = 1200;
+
+/** A YouTube video is captured from its transcript; each segment keeps the second it starts at. */
+const youtube = defineSourceKind<YouTubeTranscript>({
+  fetch: async (deps, source) => {
+    const videoId = source.reference ? parseYouTubeVideoId(source.reference) : null;
+    if (!videoId) throw new ContentFetchError("This Source's YouTube link is not valid.");
+    const transcript = await deps.contentFetcher.fetchYouTubeTranscript(videoId);
+    if (!transcript || !transcript.cues.some((c) => c.text.trim())) throw new ContentFetchError(NO_TRANSCRIPT_REASON);
+    return transcript;
+  },
+  extract: async (_deps, _source, transcript) => ({
+    title: transcript.title,
+    segments: transcriptSegments(transcript.cues),
+  }),
+});
+
+/** Join cues into segments of up to MAX_TRANSCRIPT_SEGMENT_CHARS, each anchored at its first cue. */
+function transcriptSegments(cues: TranscriptCue[]): Segment[] {
+  const segments: Segment[] = [];
+  let current: Segment | null = null;
+  for (const cue of cues) {
+    const text = cue.text.replace(/\s+/g, " ").trim();
+    if (!text) continue;
+    if (current && current.text.length + 1 + text.length <= MAX_TRANSCRIPT_SEGMENT_CHARS) {
+      current.text += ` ${text}`;
+    } else {
+      current = { text, seconds: Math.max(0, Math.floor(cue.seconds)) };
+      segments.push(current);
+    }
+  }
+  return segments;
+}
+
+export const sourceKindHandlers: Partial<Record<SourceKind, SourceKindHandler>> = {
+  note,
+  url,
+  markdown,
+  youtube,
+  pdf,
+};
