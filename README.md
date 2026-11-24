@@ -1,4 +1,4 @@
-# books-rag
+# Recall Library
 
 **A personal learning app that turns what you read and watch into things you actually remember.**
 
@@ -41,7 +41,7 @@ Existing tools each solve one slice:
 | Flashcard apps (e.g. Anki) | Spaced repetition works | You write every card by hand, and cards test definitions, not understanding |
 | "Chat with your PDF" (RAG) tools | Answer questions about a document | Great for looking things up, no help with remembering; and they regenerate answers every time, so your own corrections are lost |
 
-**books-rag joins the three:** collect everything in one Library, condense it into something you
+**Recall Library joins the three:** collect everything in one Library, condense it into something you
 understand, then use spaced repetition to keep it.
 
 ## Who it's for
@@ -86,7 +86,7 @@ flowchart LR
    before anything was built.
 3. **Prototype the flow.** A throwaway clickable prototype compared three app shapes (tab bar,
    single feed, chat) on laptop and phone before committing to one.
-4. **Write the spec as user stories.** [Issue #1](https://github.com/sohamthebuilder/books-rag/issues/1)
+4. **Write the spec as user stories.** [Issue #1](https://github.com/sohamthebuilder/recall-library/issues/1)
    holds the problem, 68 user stories, implementation decisions, a testing strategy and an explicit
    out-of-scope list.
 5. **Slice into vertical tickets.** The spec became 19 GitHub issues (#2–#20), each a thin slice
@@ -95,15 +95,15 @@ flowchart LR
    clear who picks each one up.
 6. **Build in parallel.** Agents worked on separate tickets at the same time in isolated git
    worktrees, each merging into a shared v1 branch
-   ([PR #21](https://github.com/sohamthebuilder/books-rag/pull/21)).
+   ([PR #21](https://github.com/sohamthebuilder/recall-library/pull/21)).
 7. **Test behaviour, not internals.** Around 450 automated tests exercise the application core
    against a real (in-process) database with scripted fake AI, e.g. "a new Source on an edited
    Topic produces Suggested Edits, never a new Explainer version".
 8. **Review, then use it.** A code-review pass fixed issues across tickets. Then I used the app
-   end to end against the user stories ([issue #22](https://github.com/sohamthebuilder/books-rag/issues/22)).
+   end to end against the user stories ([issue #22](https://github.com/sohamthebuilder/recall-library/issues/22)).
    Almost every story worked, but the app was hard to use: home was six stacked forms, and things
    waiting on me were hidden inside individual pages. That led to a five-phase usability pass
-   ([PR #28](https://github.com/sohamthebuilder/books-rag/pull/28)): the Today screen and a
+   ([PR #28](https://github.com/sohamthebuilder/recall-library/pull/28)): the Today screen and a
    "Needs you" inbox, a focused Review session, a restructured Topic page, Library tables that
    scale, and a visual system for phone.
 
@@ -174,7 +174,7 @@ straight into the Library.
 
 ## User stories
 
-The full v1 spec has 68 user stories (see [issue #1](https://github.com/sohamthebuilder/books-rag/issues/1)).
+The full v1 spec has 68 user stories (see [issue #1](https://github.com/sohamthebuilder/recall-library/issues/1)).
 These are the ones that shaped the product most:
 
 **Capture**
