@@ -19,6 +19,7 @@ import {
 } from "./explainers";
 import { jobGiveUpHandlers, jobHandlers } from "./job-handlers";
 import { runJobs, type RunJobsOptions } from "./jobs";
+import { needsYou } from "./needs-you";
 import type { AiAdapter } from "./ports/ai";
 import type { Clock } from "./ports/clock";
 import type { ContentFetcher } from "./ports/content-fetcher";
@@ -88,6 +89,8 @@ export function createCore(deps: CoreDeps) {
     /** Quick add / Share menu: a pasted or shared link goes to the YouTube or blog URL flow. */
     addLink: (input: Arg<typeof addLink>) => addLink(deps, input),
     library: () => library(deps),
+    /** What waits for the learner: Topics to approve, Suggested Edits, failed Sources (Today's "Needs you"). */
+    needsYou: () => needsYou(deps),
     source: (sourceId: string) => getSource(deps, sourceId),
     retrySource: (sourceId: string) => retrySource(deps, sourceId),
     /** Delete a Source; Explainers citing it are left unchanged ("Source removed"). */

@@ -19,8 +19,15 @@ function formatSeconds(total: number): string {
   return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
 }
 
-export default async function SourcePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function SourcePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ decided?: string; topic?: string }>;
+}) {
   const { id } = await params;
+  const { decided: decidedKind, topic: decidedTopicId } = await searchParams;
   const core = getCore();
   let source;
   try {
@@ -38,17 +45,19 @@ export default async function SourcePage({ params }: { params: Promise<{ id: str
   ]);
   const pending = proposals.filter((p) => p.status === "pending");
   const decided = proposals.filter((p) => p.status !== "pending");
+  // Set by the approve/merge action: say what was created and link to it.
+  const decidedTopic = decidedTopicId ? topics.find((t) => t.id === decidedTopicId) : undefined;
 
   return (
     <div className="two-column wide-right">
       <RefreshWhileProcessing active={isSourceProcessing(source.status)} />
       <section className="panel" aria-labelledby="source-title">
         <p className="muted" style={{ margin: "0 0 8px" }}>
-          <Link href="/">← Library</Link>
+          <Link href="/library">← Library</Link>
         </p>
         <div className="row-between">
           <h2 id="source-title">{sourceDisplayTitle(source)}</h2>
-          <StatusBadge status={source.status} />
+          <StatusBadge status={source.status} awaitingApproval={pending.length} />
         </div>
         <div className="row-between" style={{ marginBottom: 12 }}>
           <SourceMeta source={source} />
@@ -86,6 +95,20 @@ export default async function SourcePage({ params }: { params: Promise<{ id: str
         <h2 id="proposed-topics" style={{ marginTop: 0 }}>
           Proposed Topics
         </h2>
+        {decidedTopic ? (
+          <p className="notice" role="status">
+            {decidedKind === "linked"
+              ? `Added this Source to “${decidedTopic.name}”. Anything new it brings will show as Suggested Edits.`
+              : `Created “${decidedTopic.name}”. Its Explainer and Recall Prompts are being made.`}{" "}
+            <Link href={`/topics/${decidedTopic.id}`}>View Topic →</Link>
+          </p>
+        ) : null}
+        {pending.length > 0 ? (
+          <p className="hint">
+            {pending.length === 1 ? "1 proposed Topic waits" : `${pending.length} proposed Topics wait`} for you to
+            approve, merge or reject.
+          </p>
+        ) : null}
         {source.kind === "pdf" && chapters.length > 0 ? (
           <ChapterSelection sourceId={source.id} chapters={chapters} />
         ) : null}

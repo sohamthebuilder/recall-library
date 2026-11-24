@@ -50,7 +50,7 @@ export async function transcribeSpokenAnswer(promptId: string, formData: FormDat
 export async function overruleGrade(reviewId: string, rating: ReviewRating): Promise<ReviewState> {
   await requireLearner();
   const state = await attemptReview(() => getCore().overruleGrade({ reviewId, rating }));
-  revalidatePath("/");
+  revalidatePath("/", "layout");
   return state;
 }
 
@@ -69,23 +69,20 @@ export async function editPromptInReview(promptId: string, _prev: FormState, for
     if (e instanceof ValidationError || e instanceof NotFoundError) return { error: e.message, ok: false };
     throw e;
   }
-  revalidatePath("/review");
-  revalidatePath("/practice");
+  revalidatePath("/", "layout");
   return { error: null, ok: true };
 }
 
 export async function pausePromptInReview(promptId: string): Promise<void> {
   await requireLearner();
   await ignoreGone(() => getCore().suspendRecallPrompt(promptId));
-  revalidatePath("/review");
-  revalidatePath("/practice");
+  revalidatePath("/", "layout");
 }
 
 export async function deletePromptInReview(promptId: string): Promise<void> {
   await requireLearner();
   await ignoreGone(() => getCore().deleteRecallPrompt(promptId));
-  revalidatePath("/review");
-  revalidatePath("/practice");
+  revalidatePath("/", "layout");
 }
 
 async function ignoreGone(op: () => Promise<unknown>): Promise<void> {
